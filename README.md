@@ -10,7 +10,11 @@ At boot it will look for mp3 tracks in '/home/USERNAME/Music/artist name/album_n
 
 ![screenshot](IMG_20250225_160829.jpg)
 
-IMG_20250225_160829.jpg
+
+## Connections
+
+![screenshot](Rotary_Connections.jpg)
+
 
 To install copy LCD_MP3_player.py to /home/USERNAME
 
