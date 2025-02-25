@@ -6,6 +6,8 @@ A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 5 buttons, a
 
 At boot it will look for mp3 tracks in '/home/USERNAME/Music/artist name/album_name/tracks', and/or on a USB stick, under /media/USERNAME/usb_stick_name/artist name/album_name/tracks
 
+IMG_20250225_160829.jpg
+
 To install copy LCD_MP3_player.py to /home/USERNAME
 
 and then
