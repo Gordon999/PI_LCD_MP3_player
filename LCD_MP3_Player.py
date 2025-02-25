@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# version 0.2
+
 """Copyright (c) 2025
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -16,6 +18,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
+
 
 from gpiozero import Button
 import glob
@@ -40,8 +43,6 @@ def safe_exit(signum, frame):
     exit(1)
 signal(SIGTERM, safe_exit)
 signal(SIGHUP, safe_exit)
-
-# version 0.1
 
 # set starting variables
 MP3_Play    = 0    # set to 1 to start playing MP3s at boot, else 0
@@ -930,7 +931,7 @@ while True:
                     lcd.text("SHUTDOWN in " + str(t), 2)
                 else:
                     lcd.text("STOPPING in " + str(t), 2)
-                if button_sleep.is_pressed:
+                if but_button1.is_pressed:
                     sleep_timer_start = time.monotonic()
                     sleep_timer = 900
                     abort_sd = 1
