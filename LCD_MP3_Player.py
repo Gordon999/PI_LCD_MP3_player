@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 0.3
+# version 0.4
 
 """Copyright (c) 2025
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 from gpiozero import RotaryEncoder
 rotor = RotaryEncoder(6, 5,  wrap=False, max_steps=96)
-button1     = 20  # start/stop 
+button1     = 16  # start/stop 
 but_button1 = Button(button1)
 button2     = 13  # mode (ROTARY ENCODER button)
 but_button2 = Button(button2)
@@ -140,7 +140,7 @@ def Read_Rotors():
             old_rotor = rotor.value
             if mode == 7:
                 gapless = 0
-                lcd.text("GAPLESS OFF ", 1)
+                lcd.text(">GAPLESS OFF ", 1)
                 if shuffled == 1:
                     gap = 0
                     shuffle(tracks)
@@ -149,7 +149,7 @@ def Read_Rotors():
                     tracks.sort()
             elif mode == 6:
                 shuffled = 0
-                lcd.text("SHUFFLED OFF ", 1)
+                lcd.text(">SHUFFLED OFF ", 1)
                 tracks.sort()
                 if gapless == 0:
                     gap = 0
@@ -160,14 +160,13 @@ def Read_Rotors():
                 if sleep_timer > 7200:
                     sleep_timer = 0
                 sleep_timer_start = time.monotonic()
-                lcd.text("Set SLEEP.. " + str(int(sleep_timer/60)), 1)
+                lcd.text(">Set SLEEP.. " + str(int(sleep_timer/60)), 1)
             elif mode == 4:
                 volume +=2
-                lcd.text("Set Volume.. " + str(volume), 1)
                 volume = min(volume,100)
                 volume = max(volume,0)
                 m.setvolume(volume)
-                lcd.text("Set Volume.. " + str(volume), 1)
+                lcd.text(">Set Volume.. " + str(volume), 1)
                 os.system("amixer -D pulse sset Master " + str(volume) + "%")
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
@@ -183,7 +182,7 @@ def Read_Rotors():
             old_rotor = rotor.value
             if mode == 7:
                 gapless = 1
-                lcd.text("GAPLESS ON ", 1)
+                lcd.text(">GAPLESS ON ", 1)
                 if shuffled == 1:
                     gap = gaptime
                     shuffle(tracks)
@@ -192,7 +191,7 @@ def Read_Rotors():
                     tracks.sort()
             elif mode == 6:
                 shuffled = 1
-                lcd.text("SHUFFLED ON ", 1)
+                lcd.text(">SHUFFLED ON ", 1)
                 shuffle(tracks)
                 if gapless == 0:
                     gap = 0
@@ -203,14 +202,13 @@ def Read_Rotors():
                 if sleep_timer < 0:
                     sleep_timer = 0
                 sleep_timer_start = time.monotonic()
-                lcd.text("Set SLEEP.. " + str(int(sleep_timer/60)), 1)
+                lcd.text(">Set SLEEP.. " + str(int(sleep_timer/60)), 1)
             elif mode == 4:
                 volume -=2
-                lcd.text("Set Volume.. " + str(volume), 1)
                 volume = min(volume,100)
                 volume = max(volume,0)
                 m.setvolume(volume)
-                lcd.text("Set Volume.. " + str(volume), 1)
+                lcd.text(">Set Volume.. " + str(volume), 1)
                 os.system("amixer -D pulse sset Master " + str(volume) + "%")
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
@@ -390,7 +388,7 @@ if len(tracks) > 0:
     md_2 = " "
     md_3 = " "
     if mode == 0:
-        lcd.text("Choose Artist A-Z", 1)
+        lcd.text(">Choose Artist A-Z", 1)
     elif mode == 1:
         lcd.text("Choose Artist", 1)
         md_1 = ">"
@@ -401,19 +399,19 @@ if len(tracks) > 0:
         md_3 = ">"
         lcd.text("Choose Track", 1)
     elif mode == 4:
-        lcd.text("Set Volume.. " + str(volume), 1)
+        lcd.text(">Set Volume.. " + str(volume), 1)
     elif mode == 5:
-        lcd.text("Set SLEEP..  " + str(int(sleep_timer/60)), 1)
+        lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)), 1)
     elif mode == 6:
         if shuffled == 0:
-            lcd.text("SHUFFLED OFF", 1)
+            lcd.text(">SHUFFLED OFF", 1)
         else:
-            lcd.text("SHUFFLED ON", 1)
+            lcd.text(">SHUFFLED ON", 1)
     elif mode == 7:
         if gapless == 0:
-            lcd.text("GAPLESS OFF", 1)
+            lcd.text(">GAPLESS OFF", 1)
         else:
-            lcd.text("GAPLESS ON", 1)
+            lcd.text(">GAPLESS ON", 1)
     time.sleep(0.05)
     titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
     lcd.text(md_1 + titles[0][0:19], 2)
@@ -456,7 +454,7 @@ while True:
             if mode > 7:
                 mode = 0
             if mode == 0:
-                lcd.text("Choose Artist A-Z", 1)
+                lcd.text(">Choose Artist A-Z", 1)
             elif mode == 1:
                 lcd.text("Choose Artist", 1)
                 md_1 = ">"
@@ -467,19 +465,19 @@ while True:
                 lcd.text("Choose Track", 1)
                 md_3 = ">"
             elif mode == 4:
-                lcd.text("Set Volume.. " + str(volume), 1)
+                lcd.text(">Set Volume.. " + str(volume), 1)
             elif mode == 5:
-                lcd.text("Set SLEEP..  " + str(int(sleep_timer/60)), 1)
+                lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)), 1)
             elif mode == 6:
                 if shuffled == 0:
-                    lcd.text("SHUFFLED OFF", 1)
+                    lcd.text(">SHUFFLED OFF", 1)
                 else:
-                    lcd.text("SHUFFLED ON", 1)
+                    lcd.text(">SHUFFLED ON", 1)
             elif mode == 7:
                 if gapless == 0:
-                    lcd.text("GAPLESS OFF", 1)
+                    lcd.text(">GAPLESS OFF", 1)
                 else:
-                    lcd.text("GAPLESS ON", 1)
+                    lcd.text(">GAPLESS ON", 1)
             lcd.text(md_1 + titles[0][0:19], 2)
             lcd.text(md_2 + titles[1][0:19], 3)
             lcd.text(md_3 + titles[2][0:19], 4)
@@ -558,11 +556,15 @@ while True:
             lcd.text("",4)
             time.sleep(0.5)
             mode = 3
+            md_1 = " "
+            md_2 = " "
+            md_3 = " "
             while but_button1.is_pressed and time.monotonic() - timer1 < 5:
                 pass
             if time.monotonic() - timer1 < 5 and len(tracks) > 0:
                 # determine album length and number of tracks
                 cplayed = 0
+                md_3 = ">"
                 if aalbum_mode == 1:
                     Tack_No = Track_No
                     stimer  = 0
@@ -894,7 +896,10 @@ while True:
             radio = 0
             MP3_Play = 0
             mode = 0
-            lcd.text("Choose Artist A-Z", 1)
+            md_1 = " "
+            md_2 = " "
+            md_3 = " "
+            lcd.text(">Choose Artist A-Z", 1)
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             lcd.text(md_1 + titles[0][0:19], 2)
             lcd.text(md_2 + titles[1][0:19], 3)
@@ -923,7 +928,7 @@ while True:
             lcd.text("Play.." + str(track_n)[0:5] + txt, 1)
             MP3_Play = 0
             mode = 0
-            lcd.text("Choose Artist A-Z", 1)
+            lcd.text(">Choose Artist A-Z", 1)
         # backlight timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
@@ -1038,26 +1043,30 @@ while True:
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
                 mode +=1
+                md_3 = " "
                 if mode > 7:
                     mode = 0
                 if mode < 3:
                     mode = 3
                 if mode == 3:
                     lcd.text("Choose Track", 1)
+                    md_3 = ">"
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 elif mode == 4:
-                    lcd.text("Set Volume.. " + str(volume), 1)
+                    lcd.text(">Set Volume.. " + str(volume), 1)
                 elif mode == 5:
-                    lcd.text("Set SLEEP..  " + str(int(sleep_timer/60)), 1)
+                    lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)), 1)
                 elif mode == 6:
                     if shuffled == 0:
-                        lcd.text("SHUFFLED OFF", 1)
+                        lcd.text(">SHUFFLED OFF", 1)
                     else:
-                        lcd.text("SHUFFLED ON", 1)
+                        lcd.text(">SHUFFLED ON", 1)
                 elif mode == 7:
                     if gapless == 0:
-                        lcd.text("GAPLESS OFF", 1)
+                        lcd.text(">GAPLESS OFF", 1)
                     else:
-                        lcd.text("GAPLESS ON", 1)
+                        lcd.text(">GAPLESS ON", 1)
+                lcd.text(md_3 + titles[2][0:19], 4)
                 
             # backlight OFF
             if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0 and bl_on == 1:
@@ -1136,7 +1145,8 @@ while True:
                 time.sleep(2)
                 status()
                 mode = 0
-                lcd.text("Choose Artist A-Z", 1)
+                md_3 = " "
+                lcd.text(">Choose Artist A-Z", 1)
                 lcd.text(md_1 + titles[0][0:19], 2)
                 lcd.text(md_2 + titles[1][0:19], 3)
                 lcd.text(md_3 + titles[2][0:19], 4)
