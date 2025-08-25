@@ -10,7 +10,7 @@ Press rotary encoder button to choose mode to choose Artist/ Album / Track or se
 press PLAY button to play mp3, or hold for > 5 seconds to choose Radio.
 ## Screenshot
 
-![screenshot](IMG_20250825_194415.gif)
+![screenshot](IMG_20250825_194846.gif)
 
 
 ## Connections
