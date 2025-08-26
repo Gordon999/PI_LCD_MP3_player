@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 0.5
+# version 0.6
 
 """Copyright (c) 2025
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -171,6 +171,7 @@ def Read_Rotors():
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
             elif radio == 1:
+                mode = 0
                 radio_next = 1
             elif MP3_Play == 0:
                 next_ = 1
@@ -214,6 +215,7 @@ def Read_Rotors():
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
             elif radio == 1:
+                mode = 0
                 radio_prev = 1
             elif MP3_Play == 0:
                 prev_ = 1
@@ -696,65 +698,65 @@ while True:
             album = 1
             bl_start = time.monotonic()
 
-            # PREVIOUS ARTIST 
-            if prev_ == 1 and len(tracks) > 0 and mode == 1:
-                    prev_ = 0
-                    while titles[0] == old_artist:
-                        Track_No -=1
-                        if Track_No < 0:
-                            Track_No = len(tracks) + Track_No
-                        if Track_No > len(tracks) - 1:
-                            Track_No = Track_No - len(tracks)
-                        titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    old_album  = titles[1]
-                    old_artist = titles[0]
-                    while titles[1] == old_album:
-                        Track_No -=1
-                        if Track_No < 0:
-                            Track_No = len(tracks) + Track_No
-                        if Track_No > len(tracks) - 1:
-                            Track_No = Track_No - len(tracks)
-                        titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    Track_No +=1
-                    if Track_No > len(tracks) - 1:
-                        Track_No = Track_No - len(tracks)
-                    titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    old_album  = titles[1]
-                    old_artist = titles[0]
-                    lcd.text(md_1 + titles[0][0:19], 2)
-                    lcd.text(md_2 + titles[1][0:19], 3)
-                    lcd.text(md_3 + titles[2][0:19], 4)
+        # PREVIOUS ARTIST 
+        if prev_ == 1 and len(tracks) > 0 and mode == 1:
+            prev_ = 0
+            while titles[0] == old_artist:
+                Track_No -=1
+                if Track_No < 0:
+                    Track_No = len(tracks) + Track_No
+                if Track_No > len(tracks) - 1:
+                    Track_No = Track_No - len(tracks)
+                titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            old_album  = titles[1]
+            old_artist = titles[0]
+            while titles[0] == old_artist and titles[1] == old_album:
+                Track_No -=1
+                if Track_No < 0:
+                    Track_No = len(tracks) + Track_No
+                if Track_No > len(tracks) - 1:
+                    Track_No = Track_No - len(tracks)
+                titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            Track_No +=1
+            if Track_No > len(tracks) - 1:
+                Track_No = Track_No - len(tracks)
+            titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            old_album  = titles[1]
+            old_artist = titles[0]
+            lcd.text(md_1 + titles[0][0:19], 2)
+            lcd.text(md_2 + titles[1][0:19], 3)
+            lcd.text(md_3 + titles[2][0:19], 4)
                    
         # PREV LETTER
         if  prev_ == 1 and len(tracks) > 0 and mode == 0:
-                    prev_ = 0
-                    while titles[0][0:1] == old_artist[0:1]:
-                        Track_No -=1
-                        if Track_No < 0:
-                            Track_No = len(tracks) + Track_No
-                        if Track_No > len(tracks) - 1:
-                            Track_No = Track_No - len(tracks)
-                        titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    old_album  = titles[1]
-                    old_artist = titles[0]
-                    while titles[1][0:1] == old_album[0:1] and titles[0] == old_artist:
-                        Track_No -=1
-                        if Track_No < 0:
-                            Track_No = len(tracks) + Track_No
-                        if Track_No > len(tracks) - 1:
-                            Track_No = Track_No - len(tracks)
-                        titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    Track_No +=1
-                    if Track_No > len(tracks) - 1:
-                        Track_No = Track_No - len(tracks)
-                    titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                    old_album  = titles[1]
-                    old_artist = titles[0]
-                    lcd.text(md_1 + titles[0][0:19], 2)
-                    lcd.text(md_2 + titles[1][0:19], 3)
-                    lcd.text(md_3 + titles[2][0:19], 4)
+            prev_ = 0
+            while titles[0][0:1] == old_artist[0:1]:
+                Track_No -=1
+                if Track_No < 0:
+                    Track_No = len(tracks) + Track_No
+                if Track_No > len(tracks) - 1:
+                    Track_No = Track_No - len(tracks)
+                titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            old_album  = titles[1]
+            old_artist = titles[0]
+            while titles[1][0:1] == old_album[0:1] and titles[0] == old_artist:
+                Track_No -=1
+                if Track_No < 0:
+                    Track_No = len(tracks) + Track_No
+                if Track_No > len(tracks) - 1:
+                    Track_No = Track_No - len(tracks)
+                titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            Track_No +=1
+            if Track_No > len(tracks) - 1:
+                Track_No = Track_No - len(tracks)
+            titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+            old_album  = titles[1]
+            old_artist = titles[0]
+            lcd.text(md_1 + titles[0][0:19], 2)
+            lcd.text(md_2 + titles[1][0:19], 3)
+            lcd.text(md_3 + titles[2][0:19], 4)
                     
-                    bl_start = time.monotonic()
+            bl_start = time.monotonic()
 
         # PREVIOUS TRACK
         if prev_ == 1 and len(tracks) > 0 and mode == 3:
