@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 0.4
+# version 0.5
 
 """Copyright (c) 2025
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 from gpiozero import RotaryEncoder
 rotor = RotaryEncoder(6, 5,  wrap=False, max_steps=96)
-button1     = 16  # start/stop 
+button1     = 20  # start/stop 
 but_button1 = Button(button1)
 button2     = 13  # mode (ROTARY ENCODER button)
 but_button2 = Button(button2)
@@ -170,14 +170,15 @@ def Read_Rotors():
                 os.system("amixer -D pulse sset Master " + str(volume) + "%")
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
+            elif radio == 1:
+                radio_next = 1
             elif MP3_Play == 0:
                 next_ = 1
             elif MP3_Play == 1:
                 mode = 3
                 status()
                 next_ = 1
-            elif radio == 1:
-                radio_next = 1
+            
         else:
             old_rotor = rotor.value
             if mode == 7:
@@ -212,14 +213,15 @@ def Read_Rotors():
                 os.system("amixer -D pulse sset Master " + str(volume) + "%")
                 if mixername == "DSP Program":
                     os.system("amixer set 'Digital' " + str(volume + 107))
+            elif radio == 1:
+                radio_prev = 1
             elif MP3_Play == 0:
                 prev_ = 1
             elif MP3_Play == 1:
                 mode = 3
                 status()
                 prev_ = 1
-            elif radio == 1:
-                radio_prev = 1
+            
 
 def status():
     global txt,shuffled,gapless,aalbum_mode,sleep_timer
@@ -588,8 +590,8 @@ while True:
             elif time.monotonic() - timer1 >= 5:
                 lcd.text(" ",1)
                 lcd.text(" ",2)
-                lcd.text("",3)
-                lcd.text("",4)
+                lcd.text(" ",3)
+                lcd.text(" ",4)
                 q = subprocess.Popen(["mplayer", "-nocache", Radio_Stns[radio_stn+1]] , shell=False)
                 time.sleep(0.05)
                 lcd.text(Radio_Stns[radio_stn], 2)
@@ -598,6 +600,8 @@ while True:
                     pass
                 time.sleep(1)
                 radio = 1
+                mode = 0
+                lcd.text(">Choose Radio Stn", 1)
                 
         # NEXT ALBUM 
         if next_ == 1 and len(tracks) > 0 and mode == 2:
@@ -767,7 +771,6 @@ while True:
            
     # loop while playing Radio
     while radio == 1:
-        mode = 4
         time.sleep(0.2)
         # read rotary encoder
         if old_rotor != rotor.value:
@@ -784,13 +787,15 @@ while True:
             bl_start = time.monotonic()
             mode +=1
             if mode > 5:
-                mode = 5
-            if mode < 4:
+                mode = 0
+            if mode == 0:
+                lcd.text(">Choose Radio Stn", 1)
+            if mode == 1:
                 mode = 4
             if mode == 4:
-                lcd.text("Set Volume.. " + str(volume), 1)
+                lcd.text(">Set Volume.. " + str(volume), 1)
             elif mode == 5:
-                lcd.text("Set SLEEP..  " + str(int(sleep_timer/60)), 1)
+                lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)), 1)
 
         # backlight timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
@@ -858,7 +863,6 @@ while True:
                 lcd.text(clock, 2)
                 time.sleep(0.2)
             old_secs = secs
-            
                 
         # PREVIOUS Radio Station
         if radio_prev == 1:
