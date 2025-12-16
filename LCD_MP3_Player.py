@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 0.6
+# version 1.0
 
 """Copyright (c) 2025
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,7 @@ from random import shuffle
 from mutagen.mp3 import MP3
 import alsaaudio
 from gpiozero import RotaryEncoder
-rotor = RotaryEncoder(6, 5,  wrap=False, max_steps=96)
+rotor = RotaryEncoder(6, 5, wrap=False, max_steps=96)
 button1     = 20  # start/stop 
 but_button1 = Button(button1)
 button2     = 13  # mode (ROTARY ENCODER button)
@@ -45,19 +45,19 @@ signal(SIGTERM, safe_exit)
 signal(SIGHUP, safe_exit)
 
 # set starting variables
+lcd_lines   = 2    # 2 or 4 dependent on i2c lcd display used
 MP3_Play    = 0    # set to 1 to start playing MP3s at boot, else 0
+album_mode  = 0    # set to 1 for Album Mode, will play an album then stop
+shuffled    = 0    # 0 = Unshuffled, 1 = Shuffled
 radio       = 0    # set to 1 to start playing radio at boot, else 0
 radio_stn   = 0    # selected radio station at startup 
-shuffled    = 0    # 0 = Unshuffled, 1 = Shuffled
-volume      = 40   # range 0 - 100
+volume      = 30   # range 0 - 100
 use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/... on SD card
 sleep_timer = 0    # sleep_timer timer in minutes, use 15,30,45,60 etc...set to 0 to disable
 sleep_shut  = 0    # set to 1 to shutdown when sleep times out
 bl_timeout  = 30   # backlight timeout in seconds, set to 0 to disable
-show_clock  = 0    # set to 1 to show clock, only use if on web or using RTC
 gapless     = 0    # set to 1 for gapless play
 gaptime     = 2    # set pre-start time for gapless, in seconds
-album_mode  = 0    # set to 1 for Album Mode, will play an album then stop
 
 Radio_Stns = ["R Paradise Rock","http://stream.radioparadise.com/rock-192",
               "R Paradise Main","http://stream.radioparadise.com/mp3-320",
@@ -104,6 +104,7 @@ radio_prev  = 0
 md_1        = " "
 md_2        = " "
 md_3        = " "
+trace       = 0
 
 def reload():
     global tracks
@@ -124,6 +125,7 @@ def reload():
         titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = usb_tracks[x].split("/")
         track = titles[4] + "/" + titles[5] + "/" + titles[6] + "/" + titles[0] + "/" + titles[1] + "/" + titles[2] + "/" + titles[3]
         tracks.append(track)
+        
     tracks.sort()
     with open('tracks.txt', 'w') as f:
         for item in tracks:
@@ -134,7 +136,9 @@ def reload():
     time.sleep(2)
 
 def Read_Rotors():
-    global volume, mixername, m,old_rotor,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start,shuffled,gapless,gap,gaptime,tracks
+    global volume, mixername, m,old_rotor,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start,shuffled,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace
+    if trace == 1:
+        print("read rotary")
     if old_rotor != rotor.value:
         if rotor.value < old_rotor:
             old_rotor = rotor.value
@@ -155,6 +159,10 @@ def Read_Rotors():
                     gap = 0
                 elif gapless != 0:
                     gap = gaptime
+            elif mode == 8:
+                aalbum_mode = 0
+                lcd.text(">ALBUM MODE OFF ", 1)
+                shuffled = 0
             elif mode == 5:
                 sleep_timer +=900
                 if sleep_timer > 7200:
@@ -165,20 +173,28 @@ def Read_Rotors():
                 volume +=2
                 volume = min(volume,100)
                 volume = max(volume,0)
-                m.setvolume(volume)
                 lcd.text(">Set Volume.. " + str(volume), 1)
-                os.system("amixer -D pulse sset Master " + str(volume) + "%")
-                if mixername == "DSP Program":
-                    os.system("amixer set 'Digital' " + str(volume + 107))
+                if len(alsaaudio.mixers()) > 0:
+                    m.setvolume(volume)
+                    os.system("amixer -D pulse sset Master " + str(volume) + "%")
+                    if mixername == "DSP Program":
+                        os.system("amixer set 'Digital' " + str(volume + 107))
+                else:
+                    os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
             elif radio == 1:
                 mode = 0
                 radio_next = 1
             elif MP3_Play == 0:
                 next_ = 1
+                #time.sleep(1)
             elif MP3_Play == 1:
+                if trace == 1:
+                    print("MP3_Play")
                 mode = 3
                 status()
                 next_ = 1
+                if trace == 1:
+                    print("MP3_Play1")
             
         else:
             old_rotor = rotor.value
@@ -199,6 +215,11 @@ def Read_Rotors():
                     gap = 0
                 elif gapless != 0:
                     gap = gaptime
+            elif mode == 8:
+                aalbum_mode = 1
+                lcd.text(">ALBUM MODE ON ", 1)
+                shuffled = 0
+                album_length()
             elif mode == 5:
                 sleep_timer -=900
                 if sleep_timer < 0:
@@ -209,17 +230,22 @@ def Read_Rotors():
                 volume -=2
                 volume = min(volume,100)
                 volume = max(volume,0)
-                m.setvolume(volume)
                 lcd.text(">Set Volume.. " + str(volume), 1)
-                os.system("amixer -D pulse sset Master " + str(volume) + "%")
-                if mixername == "DSP Program":
-                    os.system("amixer set 'Digital' " + str(volume + 107))
+                if len(alsaaudio.mixers()) > 0:
+                    m.setvolume(volume)
+                    os.system("amixer -D pulse sset Master " + str(volume) + "%")
+                    if mixername == "DSP Program":
+                        os.system("amixer set 'Digital' " + str(volume + 107))
+                else:
+                    os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
             elif radio == 1:
                 mode = 0
                 radio_prev = 1
             elif MP3_Play == 0:
                 prev_ = 1
             elif MP3_Play == 1:
+                if trace == 1:
+                    print("MP3_Play")
                 mode = 3
                 status()
                 prev_ = 1
@@ -302,8 +328,10 @@ if use_USB == 1:
                     f.write("%s\n" % item)
 
 # check for audio mixers
+print(alsaaudio.mixers())
 if len(alsaaudio.mixers()) > 0:
     for mixername in alsaaudio.mixers():
+        print(str(mixername))
         if str(mixername) == "PCM" or str(mixername) == "DSP Program" or str(mixername) == "Master" or str(mixername) == "Capture" or str(mixername) == "Headphone" or str(mixername) == "HDMI":
             m = alsaaudio.Mixer(mixername)
         else:
@@ -327,10 +355,10 @@ else:
              tracks.append(line.strip())
              line = file.readline()
 lcd.text("Tracks: " + str(len(tracks)), 1)
-#rotor = RotaryEncoder(24, 23, wrap=True, max_steps=len(tracks))
 
 if MP3_Play == 1:
     radio = 0
+    mode = 3
 # wait for internet connection
 if radio == 1:
     lcd.text("Waiting...", 1)
@@ -348,7 +376,7 @@ if len(tracks) > 0:
 
 def album_length():
     # determine album length and number of tracks
-    global aalbum_mode,Track_No,tracks,audio,stimer,ctracks
+    global aalbum_mode,Track_No,tracks,audio,stimer,ctracks,Tack_No,fTack_No
     cplayed = 0
     if aalbum_mode == 1:
         Tack_No = Track_No
@@ -357,18 +385,39 @@ def album_length():
         stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
         talbum = stitles[1]
         tartist = stitles[0]
+        # find start of album
+        while stitles[1] == talbum and stitles[0] == tartist:
+            stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
+            strack = stitles[3] + "/" + stitles[4] + "/" + stitles[5] + "/" + stitles[6] + "/" + stitles[0] + "/" + stitles[1] + "/" + stitles[2]
+            Tack_No -=1
+            Track_No -=1
+        Tack_No +=2
+        Track_No +=2
+        if Tack_No < 0:
+            Tack_No = 0
+        if Track_No < 0:
+            Track_No = 0
+        fTack_No = Track_No
+        stitles = [0,0,0,0,0,0,0]
+        stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
+        talbum = stitles[1]
+        tartist = stitles[0]
+        # until end of album, length in time and number of tracks
         while stitles[1] == talbum and stitles[0] == tartist:
             stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
             strack = stitles[3] + "/" + stitles[4] + "/" + stitles[5] + "/" + stitles[6] + "/" + stitles[0] + "/" + stitles[1] + "/" + stitles[2]
             audio = MP3(strack)
             stimer += audio.info.length
             Tack_No +=1
+        Tack_No -=2
         audio = MP3(strack)
         stimer -= audio.info.length
-        ctracks = Tack_No - Track_No - 1
+        ctracks = (Tack_No - Track_No) + 1
+        if trace == 1:
+            print("Ctracks",fTack_No,Tack_No,Track_No,ctracks)
 
-if aalbum_mode == 1:
-    album_length()
+#if aalbum_mode == 1:
+album_length()
 
 if aalbum_mode == 0:
     track_n = str(Track_No+1) + "     "
@@ -392,7 +441,7 @@ if len(tracks) > 0:
     md_2 = " "
     md_3 = " "
     if mode == 0:
-        lcd.text(">Choose Artist A-Z", 1)
+        lcd.text(">Artist A-Z", 1)
     elif mode == 1:
         lcd.text("Choose Artist", 1)
         md_1 = ">"
@@ -416,11 +465,24 @@ if len(tracks) > 0:
             lcd.text(">GAPLESS OFF", 1)
         else:
             lcd.text(">GAPLESS ON", 1)
+    elif mode == 8:
+        if aalbum_mode == 0:
+            lcd.text(">ALBUM MODE OFF", 1)
+        else:
+            lcd.text(">ALBUM MODE ON", 1)
     time.sleep(0.05)
     titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-    lcd.text(md_1 + titles[0][0:19], 2)
-    lcd.text(md_2 + titles[1][0:19], 3)
-    lcd.text(md_3 + titles[2][0:19], 4)
+    if lcd_lines == 2:
+        if mode == 0 or mode == 1:
+            lcd.text(titles[0][0:15], 2)
+        if mode == 2:
+            lcd.text(titles[1][0:15], 2)
+        if mode == 3:
+            lcd.text(titles[2][0:15], 2)
+    if lcd_lines == 4:
+        lcd.text(md_1 + titles[0][0:19], 2)
+        lcd.text(md_2 + titles[1][0:19], 3)
+        lcd.text(md_3 + titles[2][0:19], 4)
 else:
     lcd.text("No tracks found...", 1)
     
@@ -429,7 +491,8 @@ time.sleep(0.05)
 if radio == 1:
     lcd.text(" ", 2)
     q = subprocess.Popen(["mplayer", "-nocache", Radio_Stns[radio_stn+1]] , shell=False)
-    lcd.text(Radio_Stns[radio_stn], 1)
+    lcd.text(">Choose Radio Stn", 1)
+    lcd.text(Radio_Stns[radio_stn], 2)
     time.sleep(0.05)
 
 sleep_timer_start = time.monotonic()
@@ -446,19 +509,23 @@ while True:
             Read_Rotors()
             old_rotor = rotor.value
             time.sleep(0.25)
+        # read play button
         if but_button1.is_pressed:
             lcd.backlight(turn_on=True)
             MP3_Play = 1
+            if aalbum_mode == 1:
+                album_length()
+        # read rotary button
         if but_button2.is_pressed:
             lcd.backlight(turn_on=True)
             mode +=1
             md_1 = " "
             md_2 = " "
             md_3 = " "
-            if mode > 7:
+            if mode > 8:
                 mode = 0
             if mode == 0:
-                lcd.text(">Choose Artist A-Z", 1)
+                lcd.text(">Artist A-Z", 1)
             elif mode == 1:
                 lcd.text("Choose Artist", 1)
                 md_1 = ">"
@@ -482,28 +549,24 @@ while True:
                     lcd.text(">GAPLESS OFF", 1)
                 else:
                     lcd.text(">GAPLESS ON", 1)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            elif mode == 8:
+                if aalbum_mode == 0:
+                    lcd.text(">ALBUM MODE OFF", 1)
+                else:
+                    lcd.text(">ALBUM MODE ON", 1)
+            if lcd_lines == 2:
+                if mode == 0 or mode == 1:
+                    lcd.text(titles[0][0:15], 2)
+                if mode == 2:
+                    lcd.text(titles[1][0:15], 2)
+                if mode == 3:
+                    lcd.text(titles[2][0:15], 2)
+            if lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             time.sleep(1)
 
-            
-        # display clock
-        if show_clock == 1 and time.monotonic() - bl_start > 10:
-            now = datetime.datetime.now()
-            secs = now.strftime("%S")
-            clock = now.strftime("%H:%M:%S")
-            t = ""
-            for r in range (0,random.randint(0, 5)):
-                t += " "
-            clock = t + clock
-            if secs != old_secs:
-                lcd.text(clock, 2)
-                time.sleep(0.05)
-                old_secs = secs
-            lcd.text("",3)
-            lcd.text("",4)
-                
         # backlight OFF timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
@@ -532,8 +595,9 @@ while True:
                 else:
                     lcd.text("STOPPING........", 1)
                 lcd.text(" ", 2)
-                lcd.text("",3)
-                lcd.text("",4)
+                if lcd_lines == 4:
+                    lcd.text("",3)
+                    lcd.text("",4)
                 time.sleep(3)
                 lcd.backlight(turn_on=False)
                 lcd.text(" ", 1)
@@ -544,7 +608,6 @@ while True:
                 status()
                 lcd.text("Play.." + str(Track_No)[0:5] + txt, 1)
                 time.sleep(0.05)
-
             bl_start = time.monotonic()
             
         # PLAY 
@@ -556,8 +619,9 @@ while True:
             timer1 = time.monotonic()
             album = 0
             lcd.text("HOLD 5s for RADIO", 2)
-            lcd.text("",3)
-            lcd.text("",4)
+            if lcd_lines == 4:
+                lcd.text("",3)
+                lcd.text("",4)
             time.sleep(0.5)
             mode = 3
             md_1 = " "
@@ -570,21 +634,7 @@ while True:
                 cplayed = 0
                 md_3 = ">"
                 if aalbum_mode == 1:
-                    Tack_No = Track_No
-                    stimer  = 0
-                    stitles = [0,0,0,0,0,0,0]
-                    stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
-                    talbum = stitles[1]
-                    tartist = stitles[0]
-                    while stitles[1] == talbum and stitles[0] == tartist:
-                        stitles[0],stitles[1],stitles[2],stitles[3],stitles[4],stitles[5],stitles[6] = tracks[Tack_No].split("/")
-                        strack = stitles[3] + "/" + stitles[4] + "/" + stitles[5] + "/" + stitles[6] + "/" + stitles[0] + "/" + stitles[1] + "/" + stitles[2]
-                        audio = MP3(strack)
-                        stimer += audio.info.length
-                        Tack_No +=1
-                    audio = MP3(strack)
-                    stimer -= audio.info.length
-                    ctracks = Tack_No - Track_No - 1
+                    album_length()
                 atimer = time.monotonic()
                 MP3_Play = 1
             elif time.monotonic() - timer1 < 5 and len(tracks) == 0:
@@ -592,10 +642,12 @@ while True:
             elif time.monotonic() - timer1 >= 5:
                 lcd.text(" ",1)
                 lcd.text(" ",2)
-                lcd.text(" ",3)
-                lcd.text(" ",4)
+                if lcd_lines == 4:
+                    lcd.text(" ",3)
+                    lcd.text(" ",4)
                 q = subprocess.Popen(["mplayer", "-nocache", Radio_Stns[radio_stn+1]] , shell=False)
                 time.sleep(0.05)
+                lcd.text(">Choose Radio Stn", 1)
                 lcd.text(Radio_Stns[radio_stn], 2)
                 rs = Radio_Stns[radio_stn] + "                "[0:15]
                 while but_button1.is_pressed:
@@ -618,9 +670,12 @@ while True:
             old_album  = titles[1]
             old_artist = titles[0]
             time.sleep(0.05)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[1][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             time.sleep(0.05)
             timer3 = time.monotonic()
             album = 1
@@ -636,14 +691,16 @@ while True:
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_artist = titles[0]
             time.sleep(0.05)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[0][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             
         # NEXT LETTER
         if next_ == 1 and len(tracks) > 0 and mode == 0:
             next_ = 0
-            print(titles[0],old_artist)
             while titles[0][0:1] == old_artist[0:1]:
                 Track_No +=1
                 if Track_No > len(tracks) - 1:
@@ -651,9 +708,12 @@ while True:
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_artist = titles[0]
             time.sleep(0.05)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[0][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
 
         # NEXT TRACK
         if next_ == 1 and len(tracks) > 0 and mode == 3:
@@ -663,10 +723,12 @@ while True:
                 Track_No = Track_No - len(tracks)
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             time.sleep(0.05)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
-                       
+            if lcd_lines == 2:
+                lcd.text(titles[2][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
                 
         # PREVIOUS ALBUM 
         if  prev_ == 1 and len(tracks) > 0 and mode == 2:
@@ -690,9 +752,12 @@ while True:
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
             old_artist = titles[0]
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[1][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             time.sleep(0.05)
             timer3 = time.monotonic()
             album = 1
@@ -723,9 +788,12 @@ while True:
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
             old_artist = titles[0]
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[0][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
                    
         # PREV LETTER
         if  prev_ == 1 and len(tracks) > 0 and mode == 0:
@@ -752,9 +820,12 @@ while True:
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
             old_artist = titles[0]
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[0][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
                     
             bl_start = time.monotonic()
 
@@ -766,9 +837,12 @@ while True:
                 Track_No = len(tracks) - 1
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             time.sleep(0.05)
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[2][0:15], 2)
+            elif lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             
            
     # loop while playing Radio
@@ -849,21 +923,16 @@ while True:
         for r in range (0,random.randint(0, 5)):
             t += " "
         clock = t + clock 
-        rs = rs[1:16] + rs[0:1]
+        rs = Radio_Stns[radio_stn] + "               "[0:15]
+        #rs = rs[1:16] + rs[0:1]
         if radio == 1:
             lcd.text(rs, 2)
         if secs != old_secs:
             if sleep_timer > 0:
-                if show_clock == 0:
-                    t = ""
-                    for r in range (0,random.randint(0, 12)):
-                           t += " "
-                    lcd.text( t + str(time_left), 2)
-                else:
-                    lcd.text(clock, 2)
-            elif show_clock == 1:
-                lcd.text(clock, 2)
-                time.sleep(0.2)
+                t = ""
+                for r in range (0,random.randint(0, 12)):
+                       t += " "
+                lcd.text( t + str(time_left), 2)
             old_secs = secs
                 
         # PREVIOUS Radio Station
@@ -905,16 +974,21 @@ while True:
             md_1 = " "
             md_2 = " "
             md_3 = " "
-            lcd.text(">Choose Artist A-Z", 1)
+            lcd.text(">Artist A-Z", 1)
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-            lcd.text(md_1 + titles[0][0:19], 2)
-            lcd.text(md_2 + titles[1][0:19], 3)
-            lcd.text(md_3 + titles[2][0:19], 4)
+            if lcd_lines == 2:
+                lcd.text(titles[0][0:15], 2)
+            if lcd_lines == 4:
+                lcd.text(md_1 + titles[0][0:19], 2)
+                lcd.text(md_2 + titles[1][0:19], 3)
+                lcd.text(md_3 + titles[2][0:19], 4)
             time.sleep(0.05)
 
                    
     # loop while playing MP3 tracks
     while MP3_Play == 1 :
+        if trace == 1:
+             print("MP3_Play == 1",MP3_Play)
         # read rotary encoder
         if old_rotor != rotor.value:
             bl_on = 1
@@ -922,6 +996,8 @@ while True:
             bl_start = time.monotonic()
             Read_Rotors()
             old_rotor = rotor.value
+            if trace == 1:
+                print("MP3_Play  read rotors return")
             time.sleep(0.25)
         if but_button2.is_pressed:
             bl_on = 1
@@ -933,16 +1009,19 @@ while True:
             status()
             lcd.text("Play.." + str(track_n)[0:5] + txt, 1)
             MP3_Play = 0
+            if trace == 1:
+                print("End of Album",cplayed,ctracks)
             mode = 0
-            lcd.text(">Choose Artist A-Z", 1)
+            lcd.text(">Artist A-Z", 1)
         # backlight timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             lcd.text(" ", 1)
             time.sleep(0.05)
             lcd.text(" ", 2)
-            lcd.text("",3)
-            lcd.text("",4)
+            if lcd_lines == 4:
+                lcd.text("",3)
+                lcd.text("",4)
             time.sleep(0.05)
             bl_on = 0
         # sleep_timer timer
@@ -984,6 +1063,8 @@ while True:
                     os.system("sudo shutdown -h now")
                 sleep_timer = 0
                 MP3_Play = 0
+                if trace == 1:
+                    print("SLEEP",MP3_Play)
             else:
                 status()
                 lcd.text("Play.." + str(track_n)[0:5] + txt, 1)
@@ -1005,6 +1086,8 @@ while True:
             
         # play selected track
         if MP3_Play == 1 and len(tracks) > 0:
+          if trace == 1:
+              print("play track")
           titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
           if aalbum_mode == 0:
               track_n = str(Track_No+1) + "     "
@@ -1017,9 +1100,12 @@ while True:
               lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%", 1)
           rpistr = "mplayer " + " -quiet " +  '"' + track + '"'
           time.sleep(0.05)
-          lcd.text(md_1 + titles[0][0:19], 2)
-          lcd.text(md_2 + titles[1][0:19], 3)
-          lcd.text(md_3 + titles[2][0:19], 4)
+          if lcd_lines == 2:
+              lcd.text(titles[2][0:15], 2)
+          elif lcd_lines == 4:
+              lcd.text(md_1 + titles[0][0:19], 2)
+              lcd.text(md_2 + titles[1][0:19], 3)
+              lcd.text(md_3 + titles[2][0:19], 4)
           audio = MP3(track)
           track_len = audio.info.length
           p = subprocess.Popen(rpistr, shell=True, preexec_fn=os.setsid)
@@ -1043,6 +1129,8 @@ while True:
                 bl_start = time.monotonic()
                 Read_Rotors()
                 old_rotor = rotor.value
+                if trace == 1:
+                    print("MP3_Play retrun rotary 2")
                 time.sleep(0.25)
             if but_button2.is_pressed:
                 bl_on = 1
@@ -1050,14 +1138,17 @@ while True:
                 bl_start = time.monotonic()
                 mode +=1
                 md_3 = " "
-                if mode > 7:
+                if mode > 8:
                     mode = 0
                 if mode < 3:
                     mode = 3
                 if mode == 3:
                     lcd.text("Choose Track", 1)
                     md_3 = ">"
-                    lcd.text(md_3 + titles[2][0:19], 4)
+                    if lcd_lines == 4:
+                        lcd.text(md_3 + titles[2][0:19], 4)
+                    else:
+                        lcd.text(titles[2][0:19], 2)
                 elif mode == 4:
                     lcd.text(">Set Volume.. " + str(volume), 1)
                 elif mode == 5:
@@ -1072,48 +1163,28 @@ while True:
                         lcd.text(">GAPLESS OFF", 1)
                     else:
                         lcd.text(">GAPLESS ON", 1)
-                lcd.text(md_3 + titles[2][0:19], 4)
+                elif mode == 8:
+                    if aalbum_mode == 0:
+                        lcd.text(">ALBUM MODE OFF", 1)
+                    else:
+                        lcd.text(">ALBUM MODE ON", 1)
+                if lcd_lines == 4:
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 
             # backlight OFF
             if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0 and bl_on == 1:
-                lcd.backlight(turn_on=False)
-                lcd.text(" ", 1)
-                time.sleep(0.05)
-                lcd.text(" ", 2)
-                time.sleep(0.05)
-                lcd.text("",3)
-                lcd.text("",4)
                 bl_on = 0
                 
-            # display clock
-            if show_clock == 1 and bl_on == 0:
-                now = datetime.datetime.now()
-                clock = now.strftime("%H:%M:%S")
-                secs = now.strftime("%S")
-                t = ""
-                for r in range (0,random.randint(0, 12)):
-                    t += " "
-                clock = t + clock 
-                if secs != old_secs2 :
-                    lcd.text(clock, 2)
-                    time.sleep(0.05)
-                    old_secs2 = secs
-                
             time.sleep(0.2)
-            if aalbum_mode == 0:
-                played  = time.monotonic() - timer1
-                played_pc = int((played/track_len) *100)
-            else:
-                aplayed = time.monotonic() - atimer
-                played_pc = int((aplayed/(stimer)) *100)
-            
-
-            # display Artist / Album / Track names
-            if time.monotonic() - timer2 > 2 and bl_on == 1:
-                lcd.text(md_1 + titles[0][0:19], 2)
-                lcd.text(md_2 + titles[1][0:19], 3)
-                lcd.text(md_3 + titles[2][0:19], 4)
+            played  = time.monotonic() - timer1
+            played_pc = int((played/track_len) *100)
   
+            # display Artist / Album / Track names
+            if time.monotonic() - timer2 > 2 and mode == 3: 
+                if lcd_lines == 4:
+                    lcd.text(md_1 + titles[0][0:19], 2)
+                    lcd.text(md_2 + titles[1][0:19], 3)
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 timer2    = time.monotonic()
                 played_pc =  "     " + str(played_pc)
                 if aalbum_mode == 0:
@@ -1122,21 +1193,22 @@ while True:
                     track_n = str(cplayed) + "/" + str(ctracks) + "       "
                 if xt < 2:
                     lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%", 1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[0][0:15], 2)
                     time.sleep(0.05)
                 elif xt == 2:
                     status()
                     lcd.text("Status...  " +  txt, 1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[1][0:15], 2)
                     time.sleep(0.05)
                 if xt == 3 and sleep_timer != 0:
                     time_left = int((sleep_timer - (time.monotonic() - sleep_timer_start))/60)
                     lcd.text("SLEEP: " + str(time_left) + " mins", 1)
                     time.sleep(0.05)
-                if xt == 4 and show_clock == 1:
-                    # display clock
-                    now = datetime.datetime.now()
-                    clock = now.strftime("%H:%M:%S")
-                    lcd.text(clock, 1)
-                    time.sleep(0.05)
+                if xt == 4:
+                    if lcd_lines == 2:
+                        lcd.text(titles[2][0:15], 2)
                 xt +=1
                 if xt > 4:
                     xt = 0
@@ -1152,10 +1224,13 @@ while True:
                 status()
                 mode = 0
                 md_3 = " "
-                lcd.text(">Choose Artist A-Z", 1)
-                lcd.text(md_1 + titles[0][0:19], 2)
-                lcd.text(md_2 + titles[1][0:19], 3)
-                lcd.text(md_3 + titles[2][0:19], 4)
+                lcd.text(">Artist A-Z", 1)
+                if lcd_lines == 2:
+                    lcd.text(titles[0][0:15], 2)
+                elif lcd_lines == 4:
+                    lcd.text(md_1 + titles[0][0:19], 2)
+                    lcd.text(md_2 + titles[1][0:19], 3)
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 time.sleep(0.05)
                 go = 0
                 bl_on = 1
@@ -1163,24 +1238,25 @@ while True:
                 
             # NEXT TRACK
             if next_ == 1 and len(tracks) > 0 and mode == 3:
+                if trace == 1:
+                    print("Next Track")
                 next_ = 0
                 Track_No +=1
                 if Track_No > len(tracks) - 1:
                     Track_No = Track_No - len(tracks)
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                if aalbum_mode == 0:
-                    track_n = str(Track_No+1) + "     "
-                else:
-                    album_length()
-                    track_n = "1/" + str(ctracks) + "       "
-                lcd.text("Play.." + str(track_n)[0:5] + txt, 1)
                 time.sleep(0.05)
-                lcd.text(md_1 + titles[0][0:19], 2)
-                lcd.text(md_2 + titles[1][0:19], 3)
-                lcd.text(md_3 + titles[2][0:19], 4)
+                if lcd_lines == 2:
+                    lcd.text(titles[2][0:15], 2)
+                elif lcd_lines == 4:
+                    lcd.text(md_1 + titles[0][0:19], 2)
+                    lcd.text(md_2 + titles[1][0:19], 3)
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 poll = p.poll()
                 if poll == None:
                     os.killpg(p.pid, SIGTERM)
+                if trace == 1:
+                    print("Track stopped",MP3_Play)
                 Track_No -=1
                 time.sleep(0.5)
 
@@ -1188,19 +1264,22 @@ while True:
             if prev_ == 1 and len(tracks) > 0 and mode == 3:
                 prev_ = 0
                 Track_No -=1
+                print(Track_No, fTack_No)
+                if Track_No < fTack_No:
+                    Track_No = fTack_No
+                cplayed -=2
+                if cplayed < 0:
+                    cplayed = 0
                 if Track_No < 0:
                     Track_No =  len(tracks) - 1
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-                if aalbum_mode == 0:
-                    track_n = str(Track_No+1) + "     "
-                else:
-                    album_length()
-                    track_n = "1/" + str(ctracks) + "       "
-                lcd.text("Play.." + str(track_n)[0:5] + txt, 1)
                 time.sleep(0.05)
-                lcd.text(md_1 + titles[0][0:19], 2)
-                lcd.text(md_2 + titles[1][0:19], 3)
-                lcd.text(md_3 + titles[2][0:19], 4)
+                if lcd_lines == 2:
+                    lcd.text(titles[2][0:19], 2)
+                elif lcd_lines == 4:
+                    lcd.text(md_1 + titles[0][0:19], 2)
+                    lcd.text(md_2 + titles[1][0:19], 3)
+                    lcd.text(md_3 + titles[2][0:19], 4)
                 poll = p.poll()
                 if poll == None:
                     os.killpg(p.pid, SIGTERM)
@@ -1213,11 +1292,13 @@ while True:
             poll = p.poll()
             
           if go == 1:
-            Track_No +=1
+              Track_No +=1
+              if trace == 1:
+                  print("Play next track",MP3_Play)
           if Track_No < 0:
-            Track_No = len(tracks) + Track_No
+              Track_No = len(tracks) + Track_No
           elif Track_No > len(tracks) - 1:
-            Track_No = Track_No - len(tracks)
+              Track_No = Track_No - len(tracks)
         
 
 
