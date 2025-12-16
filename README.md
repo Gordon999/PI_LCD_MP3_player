@@ -2,7 +2,7 @@
 
 Not for BOOKWORM 32bit, works with 64bit
 
-A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 1 I2C 2x16 or 20x4 LCD, a KY-040 rotary encoder and a switch to gnd.
+A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 1 I2C 2x16 or 4x20 LCD, a KY-040 rotary encoder and a switch to gnd.
 
 At boot it will look for mp3 tracks in '/home/USERNAME/Music/artist name/album_name/tracks', and/or on a USB stick, under /media/USERNAME/usb_stick_name/artist name/album_name/tracks
 
