@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 1.3
+# version 1.4
 
 """Copyright (c) 2025
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -55,7 +55,7 @@ show_clock  = 1    # set to 1 to show clock time, only use if on internet / RTC 
 volume      = 30   # range 0 - 100
 use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/... on SD card
 sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable
-sleep_shut  = 0    # set to 1 to shutdown when sleep times out
+sleep_shut  = 1    # set to 1 to shutdown when sleep times out
 bl_timeout  = 30   # backlight timeout in seconds,set to 0 to disable
 gapless     = 0    # set to 1 for gapless play
 gaptime     = 2    # set pre-start time for gapless,in seconds
@@ -936,7 +936,7 @@ while True:
                     lcd.text("SHUTDOWN in " + str(t),1)
                 else:
                     lcd.text("STOPPING in " + str(t),1)
-                if button_sleep.is_pressed:
+                if but_button2.is_pressed or but_button1.is_pressed:
                     sleep_timer_start = time.monotonic()
                     sleep_timer = 900
                     abort_sd = 1
