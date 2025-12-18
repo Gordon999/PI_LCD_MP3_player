@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 1.5
+# version 1.6
 
 """Copyright (c) 2025
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -48,7 +48,7 @@ signal(SIGHUP,safe_exit)
 lcd_lines   = 2    # 2 or 4 dependent on i2c lcd display used
 MP3_Play    = 0    # set to 1 to start playing MP3s at boot,else 0
 album_mode  = 0    # set to 1 for Album Mode,will play an album then stop
-randomed    = 1    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode)
+randomed    = 0    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode)
 radio       = 0    # set to 1 to start playing radio at boot,else 0
 radio_stn   = 0    # selected radio station at startup 
 show_clock  = 1    # set to 1 to show clock time, only use if on internet / RTC fitted
@@ -57,6 +57,7 @@ use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/... on SD car
 sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable
 sleep_shut  = 1    # set to 1 to shutdown when sleep times out
 bl_timeout  = 30   # backlight timeout in seconds,set to 0 to disable
+md_timeout  = 20   # timeout to switch back to main mode in seconds
 gapless     = 0    # set to 1 for gapless play
 gaptime     = 2    # set pre-start time for gapless,in seconds
 
@@ -66,13 +67,13 @@ Radio_Stns = ["R Paradise Rock","http://stream.radioparadise.com/rock-192",
               "Radio Caroline","http://sc6.radiocaroline.net:10558/"
               ]
 
-# read Radio_Stns.txt - format: Station Name,Station URL
-if os.path.exists ("Radio_Stns.txt"): 
-    with open("Radio_Stns.txt","r") as textobj:
+# read radio_stns.txt - format: Station Name,Station URL,0
+if os.path.exists ("radio_stns.txt"): 
+    with open("radio_stns.txt","r") as textobj:
         line = textobj.readline()
         while line:
-           if line.count(",") == 1:
-               a,b = line.split(",")
+           if line.count(",") == 2:
+               a,b,c = line.split(",")
                Radio_Stns.append(a)
                Radio_Stns.append(b.strip())
            line = textobj.readline()
@@ -540,6 +541,7 @@ if radio == 1:
 # start SLEEP and BACKLIGHT timers
 sleep_timer_start = time.monotonic()
 bl_start          = time.monotonic()
+md_start          = time.monotonic()
 
 # main loops
 while True:
@@ -551,12 +553,15 @@ while True:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
+            md_start = time.monotonic()
             Read_Rotors()
             old_rotor = rotor.value
             time.sleep(0.25)
         # read rotary button
         if but_button2.is_pressed:
             lcd.backlight(turn_on=True)
+            bl_start = time.monotonic()
+            md_start = time.monotonic()
             mode +=1
             a = 0
             md_1 = " "
@@ -632,6 +637,14 @@ while True:
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             bl_on = 0
+            
+        # mode timer
+        if time.monotonic() - md_start > md_timeout and mode != 0:
+            mode = 0
+            lcd.text(">Artist A-Z",1)
+            md_1 = " "
+            md_2 = " "
+            md_3 = " "
             
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
@@ -915,6 +928,7 @@ while True:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
+            md_start = time.monotonic()
             Read_Rotors()
             old_rotor = rotor.value
             time.sleep(0.25)
@@ -923,6 +937,7 @@ while True:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
+            md_start = time.monotonic()
             mode +=1
             if mode > 5:
                 mode = 0
@@ -934,11 +949,16 @@ while True:
                 lcd.text(">Set Volume.. " + str(volume),1)
             elif mode == 5:
                 lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)),1)
+            time.sleep(1)
 
         # backlight timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             bl_on = 0
+            
+        # mode timer
+        if time.monotonic() - md_start > md_timeout and mode != 0:
+            mode = 0
             
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
@@ -973,6 +993,16 @@ while True:
                 sleep_timer = 0
                 time.sleep(1)
             bl_start = time.monotonic()
+        
+        # show station name    
+        if mode == 0 and len(Radio_Stns[radio_stn]) > 15:
+            if a < len(Radio_Stns[radio_stn])-14:
+                lcd.text(Radio_Stns[radio_stn][a:a+16],2)
+                a +=1
+            else:
+                a = 0
+        elif mode == 0:
+            lcd.text(Radio_Stns[radio_stn][0:15],2)
             
         # display sleep_timer time left and clock
         now = datetime.datetime.now()
@@ -1046,6 +1076,7 @@ while True:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
+            md_start = time.monotonic()
             Read_Rotors()
             old_rotor = rotor.value
             if trace == 1:
@@ -1055,6 +1086,7 @@ while True:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
+            md_start = time.monotonic()
         # stop playing if end of album,in album mode
         cplayed +=1
         if cplayed > ctracks and aalbum_mode == 1:
@@ -1068,13 +1100,6 @@ while True:
         # backlight timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
-            lcd.text(" ",1)
-            time.sleep(0.05)
-            lcd.text(" ",2)
-            if lcd_lines == 4:
-                lcd.text("",3)
-                lcd.text("",4)
-            time.sleep(0.05)
             bl_on = 0
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
@@ -1181,6 +1206,7 @@ while True:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
+                md_start = time.monotonic()
                 Read_Rotors()
                 old_rotor = rotor.value
                 if trace == 1:
@@ -1191,6 +1217,7 @@ while True:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
+                md_start = time.monotonic()
                 mode +=1
                 md_3 = " "
                 if mode == 6:
@@ -1224,6 +1251,12 @@ while True:
                 lcd.backlight(turn_on=False)
                 bl_on = 0
                 
+            # mode timer
+            if time.monotonic() - md_start > md_timeout and mode != 3:
+                mode = 3
+                if lcd_lines == 4:
+                    md_3 = ">"
+                
             # get track played time    
             time.sleep(0.2)
             played  = time.monotonic() - timer1
@@ -1241,47 +1274,43 @@ while True:
                 else:
                     track_n = str(cplayed) + "/" + str(ctracks) + "       "
                 if xt < 2:
-                    if mode == 3:
-                        lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%",1)
-                        if lcd_lines == 2 and len(titles[0]) > 16:
-                            if a < len(titles[0])-14:
-                                lcd.text(titles[0][a:a+16],2)
-                                a +=1
-                            else:
-                                a = 0
+                    lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%",1)
+                    if lcd_lines == 2 and len(titles[0]) > 16:
+                        if a < len(titles[0])-14:
+                            lcd.text(titles[0][a:a+16],2)
+                            a +=1
                         else:
-                            lcd.text(titles[0],2)
+                            a = 0
+                    elif lcd_lines == 2:
+                        lcd.text(titles[0],2)
                 elif xt == 2:
                     status()
-                    if mode == 3:
-                        lcd.text("Status...  " +  txt,1)
-                        if lcd_lines == 2 and len(titles[1]) > 16:
-                            if a < len(titles[1])-14:
-                                lcd.text(titles[1][a:a+16],2)
-                                a +=1
-                            else:
-                                a = 0
+                    lcd.text("Status...  " +  txt,1)
+                    if lcd_lines == 2 and len(titles[1]) > 16:
+                        if a < len(titles[1])-14:
+                            lcd.text(titles[1][a:a+16],2)
+                            a +=1
                         else:
-                            lcd.text(titles[1],2)
+                            a = 0
+                    elif lcd_lines == 2:
+                        lcd.text(titles[1],2)
                 elif xt == 3 and sleep_timer != 0:
                     time_left = int((sleep_timer - (time.monotonic() - sleep_timer_start))/60)
-                    if mode == 3:
-                        lcd.text("SLEEP: " + str(time_left) + " mins",1)
-                        time.sleep(0.05)
+                    lcd.text("SLEEP: " + str(time_left) + " mins",1)
+                    time.sleep(0.05)
                 elif xt == 4 or (xt == 3 and sleep_timer == 0):
-                    if mode == 3:
-                        if show_clock == 1:
-                            now = datetime.datetime.now()
-                            clock = now.strftime("%H:%M:%S")
-                            lcd.text(str(clock),1)
-                        if lcd_lines == 2 and len(titles[2]) > 16:
-                            if a < len(titles[2])-14:
-                                lcd.text(titles[2][a:a+16],2)
-                                a +=1
-                            else:
-                                a = 0
+                    if show_clock == 1:
+                        now = datetime.datetime.now()
+                        clock = now.strftime("%H:%M:%S")
+                        lcd.text(str(clock),1)
+                    if lcd_lines == 2 and len(titles[2]) > 16:
+                        if a < len(titles[2])-14:
+                            lcd.text(titles[2][a:a+16],2)
+                            a +=1
                         else:
-                            lcd.text(titles[2],2)
+                            a = 0
+                    elif lcd_lines == 2:
+                        lcd.text(titles[2],2)
                 if time.monotonic() - timer2 > 5:      
                     xt +=1
                     timer2 = time.monotonic()
@@ -1331,7 +1360,7 @@ while True:
                 if poll == None:
                     os.killpg(p.pid,SIGTERM)
                 if trace == 1:
-                    print("Track stopped",MP3_Play)
+                    print("Track killed",MP3_Play)
                 Track_No -=1
                 time.sleep(0.5)
 
