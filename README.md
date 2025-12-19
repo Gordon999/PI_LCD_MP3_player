@@ -24,15 +24,15 @@ and then
 
 sudo apt-get install python3-alsaaudio
 
-sudo pip3 install rpi_lcd (--break-system-packages)
+sudo pip3 install rpi_lcd --break-system-packages
 
 sudo apt-get install mplayer
 
-sudo pip3 install mutagen (--break-system-packages)
+sudo pip3 install mutagen --break-system-packages
 
 enable i2c, Menu >> Preferences >> Raspberry Pi Configuration >> Interfaces >> i2c enable
 
-to run python3 LCD_MP3_player.py
+to run python3 LCD_MP3_Player.py
 
 to start at boot, if using X11, add /usr/bin/python3 /home/USERNAME/LCD_MP3_player.py to /etc/xdg/lxsession/LXDE-pi/autostart and ensure your Pi boots to the GUI
 
