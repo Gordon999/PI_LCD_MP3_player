@@ -36,3 +36,16 @@ to run python3 LCD_MP3_Player.py
 
 to start at boot, if using X11, add /usr/bin/python3 /home/USERNAME/LCD_MP3_player.py to /etc/xdg/lxsession/LXDE-pi/autostart and ensure your Pi boots to the GUI
 
+or if using labwc...
+
+(note: change USERNAME to your username)
+
+sudo nano /home/USERNAME/.config/labwc/autostart
+
+type in...
+
+/usr/bin/python3 /home/USERNAME/LCD_MP3_player.py
+
+press Ctrl and X, Y, return to save..
+
+Reboot
