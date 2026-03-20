@@ -20,7 +20,9 @@ Use rotary to set, then press PLAY button to play / stop mp3, or hold for > 5 se
 ![screenshot](rotary_connections_LCD.jpg)
 
 
-To install copy LCD_MP3_player.py to /home/USERNAME
+To install:
+
+Copy LCD_MP3_player.py to /home/USERNAME
 
 (NOTE: I am suggesting the use of --break-system-packages, this shouldn't be an issue if using this in a standalone
 pi BUT if not then learn how to use venv !!)
