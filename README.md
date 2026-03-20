@@ -37,7 +37,7 @@ sudo apt-get install mplayer
 
 sudo pip3 install mutagen --break-system-packages
 
-enable i2c, Menu >> Preferences >> Raspberry Pi Configuration >> Interfaces >> i2c enable
+enable i2c, Menu >> Preferences >> Control Centre >> Interfaces >> i2c enable
 
 to run python3 LCD_MP3_Player.py
 
