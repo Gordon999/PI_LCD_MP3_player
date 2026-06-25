@@ -20,7 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 
 # imports 
-from gpiozero import Button
 import glob
 import subprocess
 import os,sys
@@ -32,6 +31,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 
 # setup rotary encoders
+from gpiozero import Button
 from gpiozero import RotaryEncoder
 rotor1      = RotaryEncoder(16,20,wrap=True,max_steps=99)
 button1     = 12  # SELECT button
@@ -92,12 +92,15 @@ if os.path.exists ("radio_stns.txt"):
 
 # check LCD_ConfigX.txt exists, if not then write default values
 config_file = "LCD_Config1.txt"
+# delete config file if size = 0
+if os.path.exists(config_file) and os.path.getsize(config_file) == 0:
+	os.remove(config_file)
+# write the config file if required
 if not os.path.exists(config_file):
     defaults = [boot_mode,volume,randomed,album_mode,radio_stn,sleep_timer]
     with open(config_file, 'w') as f:
         for item in defaults:
             f.write("%s\n" % item)
-
 # read config file
 defaults    = []
 with open(config_file, "r") as file:
@@ -113,7 +116,6 @@ randomed    = defaults[2]
 album_mode  = defaults[3]
 radio_stn   = defaults[4]
 sleep_timer = defaults[5]
-
 
 # initialise parameters
 Track_No    = 0
@@ -181,10 +183,11 @@ def reload():
 # read SELECT rotary encoder
 def Read_Rotor():
     global volume,mixername,m,old_rotor2,old_rotor1,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start
-    global RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace,randomed,radio,boot_mode,save_config
+    global RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace,randomed,radio,boot_mode,save_config,md_start
     if trace == 1:
         print("read rotary")
     if old_rotor1 != rotor1.value:
+        md_start = time.monotonic()
         if rotor1.value < old_rotor1:
             old_rotor1 = rotor1.value
             if mode == 4:
@@ -237,12 +240,12 @@ def Read_Rotor():
             elif mode == 8:
                 boot_mode +=1
                 boot_mode = min(boot_mode,2)
-                if boot_mode == 1:
+                if boot_mode == 0:
+                    lcd.text(">BOOT:STOPPED",1)
+                elif boot_mode == 1:
                     lcd.text(">BOOT:MP3 PLAY",1)
                 elif boot_mode == 2:
                     lcd.text(">BOOT:RADIO PLAY",1)
-                elif boot_mode == 0:
-                    lcd.text(">BOOT:STOPPED",1)
                 save_config = 1
             elif radio == 1:
                 mode = 0
@@ -309,11 +312,11 @@ def Read_Rotor():
                 boot_mode -=1
                 boot_mode = max(boot_mode,0)
                 if boot_mode == 0:
-                    lcd.text(">BOOT:MP3 PLAY",1)
-                elif boot_mode == 1:
-                    lcd.text(">BOOT:RADIO PLAY",1)
-                elif boot_mode == 2:
                     lcd.text(">BOOT:STOPPED",1)
+                elif boot_mode == 1:
+                    lcd.text(">BOOT:MP3 PLAY",1)
+                elif boot_mode == 2:
+                    lcd.text(">BOOT:RADIO PLAY",1)
                 save_config = 1
             elif radio == 1:
                 mode = 0
@@ -332,9 +335,9 @@ def Read_Rotary_VOLUME():
     global old_rotor2,volume,save_config
     if old_rotor2 != rotor2.value:
         if rotor2.value > old_rotor2:
-            volume +=2
+            volume +=5
         else:
-            volume -=2
+            volume -=5
         volume = min(volume,100)
         volume = max(volume,0)
         if len(alsaaudio.mixers()) > 0:
@@ -526,7 +529,8 @@ def album_length():
             print("Ctracks",fTack_No,Tack_No,Track_No,ctracks)
 
 # get album length
-album_length()
+if len(tracks) > 0:
+    album_length()
 
 # display track number
 if aalbum_mode == 0:
@@ -862,7 +866,7 @@ while True:
                     Track_No = Track_No - len(tracks)
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
-            old_artist = titles[0]
+            #old_artist = titles[0]
             time.sleep(0.05)
             if lcd_lines == 2:
                 lcd.text(titles[1][0:15],2)
@@ -945,7 +949,7 @@ while True:
                 Track_No = Track_No - len(tracks)
             titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
-            old_artist = titles[0]
+            #  old_artist = titles[0]
             if lcd_lines == 2:
                 lcd.text(titles[1][0:15],2)
             elif lcd_lines == 4:
@@ -1051,7 +1055,7 @@ while True:
             md_start = time.monotonic()
             old_rotor2 = rotor2.value
             time.sleep(0.25)
-        # read rotary encoder
+        # read SELECT rotary encoder
         Read_Rotor()
         if old_rotor1 != rotor1.value:
             bl_on = 1
@@ -1233,6 +1237,7 @@ while True:
             md_start = time.monotonic()
             old_rotor2 = rotor2.value
             time.sleep(0.25)
+        # redad SELECT rotary encoder
         Read_Rotor()
         if old_rotor1 != rotor1.value:
             bl_on = 1
