@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# version 1.6
+# version 2.0
 
-"""Copyright (c) 2025
+"""Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy
 of this software and associated documentation files (the "Software"),to deal
 in the Software without restriction,including without limitation the rights
@@ -19,7 +19,7 @@ LIABILITY,WHETHER IN AN ACTION OF CONTRACT,TORT OR OTHERWISE,ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 
-# imports and setup lcd, rotary encoder and buttons
+# imports 
 from gpiozero import Button
 import glob
 import subprocess
@@ -30,12 +30,17 @@ import random
 from random import shuffle
 from mutagen.mp3 import MP3
 import alsaaudio
+
+# setup rotary encoders
 from gpiozero import RotaryEncoder
-rotor = RotaryEncoder(6,5,wrap=False,max_steps=96)
-button1     = 20  # start/stop PLAY
+rotor1      = RotaryEncoder(16,20,wrap=True,max_steps=99)
+button1     = 12  # SELECT button
 but_button1 = Button(button1)
-button2     = 13  # mode (ROTARY ENCODER button)
+rotor2      = RotaryEncoder(5,6,  wrap=False,max_steps=99)
+button2     = 13  # VOLUME button
 but_button2 = Button(button2)
+
+# setup LCD
 from signal import signal,SIGTERM,SIGHUP,pause
 from rpi_lcd import LCD
 lcd = LCD()
@@ -46,20 +51,21 @@ signal(SIGHUP,safe_exit)
 
 # set starting variables
 lcd_lines   = 2    # 2 or 4 dependent on i2c lcd display used
-MP3_Play    = 0    # set to 1 to start playing MP3s at boot,else 0
-album_mode  = 0    # set to 1 for Album Mode,will play an album then stop
-randomed    = 0    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode)
-radio       = 0    # set to 1 to start playing radio at boot,else 0
-radio_stn   = 0    # selected radio station at startup 
-show_clock  = 1    # set to 1 to show clock time, only use if on internet / RTC fitted
-volume      = 30   # range 0 - 100
-use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/... on SD card
-sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable
+boot_mode   = 0    # 0 = STOPPED, 1 = MP3 PLAY, 2 = RADIO PLAY *
+album_mode  = 0    # set to 1 for Album Mode,will play an album then stop *
+randomed    = 1    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode) *
+radio_stn   = 0    # selected radio station at startup *
+volume      = 30   # range 0 - 100 *
+sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable *
 sleep_shut  = 1    # set to 1 to shutdown when sleep times out
+show_clock  = 0    # set to 1 to show clock time, only use if on internet / RTC fitted
+use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/Artist/Album/... on SD card
 bl_timeout  = 30   # backlight timeout in seconds,set to 0 to disable
 md_timeout  = 20   # timeout to switch back to main mode in seconds
 gapless     = 0    # set to 1 for gapless play
 gaptime     = 2    # set pre-start time for gapless,in seconds
+
+# NOTE * These settings will be overridden by the config file stored after the first run.
 
 Radio_Stns = ["R Paradise Rock","http://stream.radioparadise.com/rock-192",
               "R Paradise Main","http://stream.radioparadise.com/mp3-320",
@@ -67,16 +73,47 @@ Radio_Stns = ["R Paradise Rock","http://stream.radioparadise.com/rock-192",
               "Radio Caroline","http://sc6.radiocaroline.net:10558/"
               ]
 
-# read radio_stns.txt - format: Station Name,Station URL,0
+# read stations.txt (Station Name,URL)
 if os.path.exists ("radio_stns.txt"): 
     with open("radio_stns.txt","r") as textobj:
         line = textobj.readline()
         while line:
-           if line.count(",") == 2:
-               a,b,c = line.split(",")
-               Radio_Stns.append(a)
-               Radio_Stns.append(b.strip())
-           line = textobj.readline()
+            if line.count(",") == 2:
+                a,b,c = line.split(",")
+                if a[0:1] != "#":
+                    Radio_Stns.append(a)
+                    Radio_Stns.append(b)
+            elif line.count(",") == 1:
+                a,b = line.split(",")
+                if a[0:1] != "#":
+                    Radio_Stns.append(a)
+                    Radio_Stns.append(b.strip())
+            line = textobj.readline()
+
+# check LCD_ConfigX.txt exists, if not then write default values
+config_file = "LCD_Config1.txt"
+if not os.path.exists(config_file):
+    defaults = [boot_mode,volume,randomed,album_mode,radio_stn,sleep_timer]
+    with open(config_file, 'w') as f:
+        for item in defaults:
+            f.write("%s\n" % item)
+
+# read config file
+defaults    = []
+with open(config_file, "r") as file:
+   line = file.readline()
+   while line:
+      defaults.append(line.strip())
+      line = file.readline()
+defaults = list(map(int,defaults))
+
+boot_mode   = defaults[0]
+volume      = defaults[1]
+randomed    = defaults[2]
+album_mode  = defaults[3]
+radio_stn   = defaults[4]
+sleep_timer = defaults[5]
+
 
 # initialise parameters
 Track_No    = 0
@@ -96,7 +133,9 @@ cplayed     = 0
 atimer      = time.monotonic()
 aalbum_mode = album_mode
 played_pc   = 0
-old_rotor   = 0
+old_rotor1  = 0
+old_rotor2  = 0
+old_volume = volume
 button_play = 0
 next_       = 0
 prev_       = 0
@@ -108,6 +147,7 @@ md_2        = " "
 md_3        = " "
 trace       = 0
 a           = 0
+save_config = 0
 
 # reload MP3 tracks
 def reload():
@@ -138,33 +178,23 @@ def reload():
     lcd.text(" ",2)
     time.sleep(1)
 
-# read rotary encoder
-def Read_Rotors():
-    global volume,mixername,m,old_rotor,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start,RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace
+# read SELECT rotary encoder
+def Read_Rotor():
+    global volume,mixername,m,old_rotor2,old_rotor1,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start
+    global RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace,randomed,radio,boot_mode,save_config
     if trace == 1:
         print("read rotary")
-    if old_rotor != rotor.value:
-        if rotor.value < old_rotor:
-            old_rotor = rotor.value
+    if old_rotor1 != rotor1.value:
+        if rotor1.value < old_rotor1:
+            old_rotor1 = rotor1.value
             if mode == 4:
-                volume +=2
-                volume = min(volume,100)
-                volume = max(volume,0)
-                lcd.text(">Set Volume.. " + str(volume),1)
-                if len(alsaaudio.mixers()) > 0:
-                    m.setvolume(volume)
-                    os.system("amixer -D pulse sset Master " + str(volume) + "%")
-                    if mixername == "DSP Program":
-                        os.system("amixer set 'Digital' " + str(volume + 107))
-                else:
-                    os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
-            elif mode == 5:
                 sleep_timer +=900
                 if sleep_timer > 7200:
                     sleep_timer = 0
                 sleep_timer_start = time.monotonic()
                 lcd.text(">Set SLEEP.. " + str(int(sleep_timer/60)),1)
-            elif mode == 6:
+                save_config = 1
+            elif mode == 5:
                 randomed = 1
                 lcd.text(">RANDOM ON ",1)
                 shuffle(tracks)
@@ -180,7 +210,8 @@ def Read_Rotors():
                     gap = 0
                 elif gapless != 0:
                     gap = gaptime
-            elif mode == 7:
+                save_config = 1
+            elif mode == 6:
                 gapless = 1
                 lcd.text(">GAPLESS ON ",1)
                 if randomed == 1:
@@ -189,7 +220,7 @@ def Read_Rotors():
                 else:
                     gap = gaptime
                     tracks.sort()
-            elif mode == 8:
+            elif mode == 7:
                 aalbum_mode = 1
                 lcd.text(">ALBUM MODE ON ",1)
                 randomed = 0
@@ -202,6 +233,17 @@ def Read_Rotors():
                     lcd.text(md_2 + titles[1][0:19],3)
                     lcd.text(md_3 + titles[2][0:19],4)
                 album_length()
+                save_config = 1
+            elif mode == 8:
+                boot_mode +=1
+                boot_mode = min(boot_mode,2)
+                if boot_mode == 1:
+                    lcd.text(">BOOT:MP3 PLAY",1)
+                elif boot_mode == 2:
+                    lcd.text(">BOOT:RADIO PLAY",1)
+                elif boot_mode == 0:
+                    lcd.text(">BOOT:STOPPED",1)
+                save_config = 1
             elif radio == 1:
                 mode = 0
                 radio_next = 1
@@ -216,26 +258,15 @@ def Read_Rotors():
                 if trace == 1:
                     print("MP3_Play1")
         else:
-            old_rotor = rotor.value
+            old_rotor1 = rotor1.value
             if mode == 4:
-                volume -=2
-                volume = min(volume,100)
-                volume = max(volume,0)
-                lcd.text(">Set Volume.. " + str(volume),1)
-                if len(alsaaudio.mixers()) > 0:
-                    m.setvolume(volume)
-                    os.system("amixer -D pulse sset Master " + str(volume) + "%")
-                    if mixername == "DSP Program":
-                        os.system("amixer set 'Digital' " + str(volume + 107))
-                else:
-                    os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
-            elif mode == 5:
                 sleep_timer -=900
                 if sleep_timer < 0:
                     sleep_timer = 0
                 sleep_timer_start = time.monotonic()
                 lcd.text(">Set SLEEP.. " + str(int(sleep_timer/60)),1)
-            elif mode == 6:
+                save_config = 1
+            elif mode == 5:
                 randomed = 0
                 lcd.text(">RANDOM OFF ",1)
                 tracks.sort()
@@ -250,7 +281,8 @@ def Read_Rotors():
                     gap = 0
                 elif gapless != 0:
                     gap = gaptime
-            elif mode == 7:
+                save_config = 1
+            elif mode == 6:
                 gapless = 0
                 lcd.text(">GAPLESS OFF ",1)
                 if randomed ==1:
@@ -259,7 +291,7 @@ def Read_Rotors():
                 elif randomed ==0:
                     gap = 0
                     tracks.sort()
-            elif mode == 8:
+            elif mode == 7:
                 aalbum_mode = 0
                 lcd.text(">ALBUM MODE OFF ",1)
                 RANDOM = 0
@@ -272,6 +304,17 @@ def Read_Rotors():
                     lcd.text(md_2 + titles[1][0:19],3)
                     lcd.text(md_3 + titles[2][0:19],4)
                 album_length()
+                save_config = 1
+            elif mode == 8:
+                boot_mode -=1
+                boot_mode = max(boot_mode,0)
+                if boot_mode == 0:
+                    lcd.text(">BOOT:MP3 PLAY",1)
+                elif boot_mode == 1:
+                    lcd.text(">BOOT:RADIO PLAY",1)
+                elif boot_mode == 2:
+                    lcd.text(">BOOT:STOPPED",1)
+                save_config = 1
             elif radio == 1:
                 mode = 0
                 radio_prev = 1
@@ -284,6 +327,26 @@ def Read_Rotors():
                 status()
                 prev_ = 1
 
+# read VOLUME rotary encoder 
+def Read_Rotary_VOLUME():
+    global old_rotor2,volume,save_config
+    if old_rotor2 != rotor2.value:
+        if rotor2.value > old_rotor2:
+            volume +=2
+        else:
+            volume -=2
+        volume = min(volume,100)
+        volume = max(volume,0)
+        if len(alsaaudio.mixers()) > 0:
+            m.setvolume(volume)
+            os.system("amixer -D pulse sset Master " + str(volume) + "%")
+            if mixername == "DSP Program":
+                os.system("amixer set 'Digital' " + str(volume + 107))
+        else:
+            os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
+        lcd.text(">Set Volume.. " + str(volume),1)
+        save_config = 1
+        
 # set current status display
 def status():
     global txt,RANDOM,gapless,aalbum_mode,sleep_timer
@@ -361,7 +424,7 @@ if use_USB == 1:
                 for item in freedisk:
                     f.write("%s\n" % item)
 
-# check for audio mixers (Bookworm)
+# check for audio mixers
 print(alsaaudio.mixers())
 if len(alsaaudio.mixers()) > 0:
     for mixername in alsaaudio.mixers():
@@ -374,6 +437,8 @@ if len(alsaaudio.mixers()) > 0:
     os.system("amixer -D pulse sset Master " + str(volume) + "%")
     if mixername == "DSP Program":
         os.system("amixer set 'Digital' " + str(volume + 107))
+else:
+    os.system("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + str(volume/100))
         
 # load MP3 tracks
 tracks  = []
@@ -390,10 +455,17 @@ else:
              line = file.readline()
 lcd.text("Tracks: " + str(len(tracks)),1)
 
-# PLAY MP3 at power on
-if MP3_Play == 1:
+# At power on
+if boot_mode == 0:
+	MP3_Play = 0
+	radio = 0
+elif boot_mode == 1:
+    MP3_Play = 1
     radio = 0
     mode = 3
+elif boot_mode == 2:
+	radio = 1
+	MP3_Play = 0
     
 # wait for internet connection for radio at power up
 if radio == 1:
@@ -494,24 +566,30 @@ if len(tracks) > 0:
         md_3 = ">"
         lcd.text("Choose Track",1)
     elif mode == 4:
-        lcd.text(">Set Volume.. " + str(volume),1)
-    elif mode == 5:
         lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)),1)
-    elif mode == 6:
-        if randomed ==0:
+    elif mode == 5:
+        if randomed == 0:
             lcd.text(">RANDOM OFF",1)
         else:
             lcd.text(">RANDOM ON",1)
-    elif mode == 7:
+    elif mode == 6:
         if gapless == 0:
             lcd.text(">GAPLESS OFF",1)
         else:
             lcd.text(">GAPLESS ON",1)
-    elif mode == 8:
+    elif mode == 7:
         if aalbum_mode == 0:
             lcd.text(">ALBUM MODE OFF",1)
         else:
             lcd.text(">ALBUM MODE ON",1)
+    elif mode == 8:
+        if boot_mode == 0:
+            lcd.text(">BOOT:STOPPED",1)
+        elif boot_mode == 1:
+            lcd.text(">BOOT:MP3 PLAY",1)
+        elif boot_mode == 2:
+            lcd.text(">BOOT:RADIO PLAY",1)
+			
     time.sleep(0.05)
     titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
     if lcd_lines == 2:
@@ -533,7 +611,7 @@ time.sleep(0.05)
 # start radio at power up if set
 if radio == 1:
     lcd.text(" ",2)
-    q = subprocess.Popen(["mplayer","-nocache",Radio_Stns[radio_stn+1]] ,shell=False)
+    q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn + 1]] ,shell=False)
     lcd.text(">Choose Radio Stn",1)
     lcd.text(Radio_Stns[radio_stn],2)
     time.sleep(0.05)
@@ -548,17 +626,26 @@ while True:
     # loop while stopped
     while MP3_Play == 0 and radio == 0:
         time.sleep(0.1)
-        # read rotary encoder 
-        if old_rotor != rotor.value:
+        # read VOLUME rotary encoder 
+        Read_Rotary_VOLUME()
+        if old_rotor2 != rotor2.value:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             md_start = time.monotonic()
-            Read_Rotors()
-            old_rotor = rotor.value
+            old_rotor2 = rotor2.value
+            time.sleep(0.05)
+        # read rotary encoder 
+        Read_Rotor()
+        if old_rotor1 != rotor1.value:
+            bl_on = 1
+            lcd.backlight(turn_on=True)
+            bl_start = time.monotonic()
+            md_start = time.monotonic()
+            old_rotor1 = rotor1.value
             time.sleep(0.25)
         # read rotary button
-        if but_button2.is_pressed:
+        if but_button1.is_pressed:
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             md_start = time.monotonic()
@@ -581,28 +668,34 @@ while True:
                 lcd.text("Choose Track",1)
                 md_3 = ">"
             elif mode == 4:
-                lcd.text(">Set Volume.. " + str(volume),1)
-            elif mode == 5:
                 lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)),1)
-            elif mode == 6:
+            elif mode == 5:
                 if randomed ==0:
                     lcd.text(">RANDOM OFF",1)
                 else:
                     lcd.text(">RANDOM ON",1)
-            elif mode == 7:
+            elif mode == 6:
                 if gapless == 0:
                     lcd.text(">GAPLESS OFF",1)
                 else:
                     lcd.text(">GAPLESS ON",1)
-            elif mode == 8:
+            elif mode == 7:
                 if aalbum_mode == 0:
                     lcd.text(">ALBUM MODE OFF",1)
                 else:
                     lcd.text(">ALBUM MODE ON",1)
+            elif mode == 8:
+                if boot_mode == 0:
+                    lcd.text(">BOOT: STOPPED",1)
+                elif boot_mode == 1:
+                    lcd.text(">BOOT: MP3 PLAY",1)
+                elif boot_mode == 2:
+                    lcd.text(">BOOT: RADIO PLAY",1)
             time.sleep(0.5)
         else: 
+          if len(tracks) > 0:
 			# display artist / album / track info   
-            if lcd_lines == 2 and not but_button2.is_pressed:
+            if lcd_lines == 2 and not but_button1.is_pressed:
                 if (mode == 0 or mode == 1) and len(titles[0]) > 15:
                     if a < len(titles[0])-14:
                         lcd.text(titles[0][a:a+16],2)
@@ -627,16 +720,30 @@ while True:
                         a = 0
                 elif mode == 3:
                     lcd.text(titles[2][0:15],2)
-            if lcd_lines == 4 and not but_button2.is_pressed:
+            if lcd_lines == 4 and not but_button1.is_pressed:
                 lcd.text(md_1 + titles[0][0:19],2)
                 lcd.text(md_2 + titles[1][0:19],3)
                 lcd.text(md_3 + titles[2][0:19],4)
-            time.sleep(0.5)
+          else:
+                lcd.text("No MP3 tracks",1)
+                lcd.text(" ",2)
+          time.sleep(0.5)
 
         # backlight OFF timer
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             bl_on = 0
+            defaults[0] = boot_mode
+            defaults[1] = volume 
+            defaults[2] = randomed 
+            defaults[3] = album_mode 
+            defaults[4] = radio_stn
+            defaults[5] = sleep_timer
+            if save_config == 1:   
+               with open(config_file, 'w') as f:
+                 for item in defaults:
+                   f.write("%s\n" % item)
+            save_config = 0
             
         # mode timer
         if time.monotonic() - md_start > md_timeout and mode != 0:
@@ -645,6 +752,18 @@ while True:
             md_1 = " "
             md_2 = " "
             md_3 = " "
+            defaults[0] = boot_mode
+            defaults[1] = volume 
+            defaults[2] = randomed 
+            defaults[3] = album_mode 
+            defaults[4] = radio_stn
+            defaults[5] = sleep_timer
+               
+            if save_config == 1:   
+               with open(config_file, 'w') as f:
+                 for item in defaults:
+                   f.write("%s\n" % item)
+            save_config = 0
             
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
@@ -657,7 +776,7 @@ while True:
                     lcd.text("SHUTDOWN in " + str(t),2)
                 else:
                     lcd.text("STOPPING in " + str(t),2)
-                if but_button1.is_pressed:
+                if but_button2.is_pressed:
                     sleep_timer_start = time.monotonic()
                     sleep_timer = 900
                     abort_sd = 1
@@ -677,7 +796,7 @@ while True:
                 lcd.text(" ",1)
                 sleep_timer = 0 
                 if sleep_shut == 1:
-                    os.system("sudo shutdown -h now")
+                    os.system("shutdown -h now")
             else:
                 status()
                 lcd.text("Play.." + str(Track_No)[0:5] + txt,1)
@@ -685,7 +804,7 @@ while True:
             bl_start = time.monotonic()
             
         # PLAY 
-        if but_button1.is_pressed:
+        if but_button2.is_pressed:
             lcd.backlight(turn_on=True)
             bl_on = 1
             bl_start = time.monotonic()
@@ -701,7 +820,7 @@ while True:
             md_1 = " "
             md_2 = " "
             md_3 = " "
-            while but_button1.is_pressed and time.monotonic() - timer1 < 5:
+            while but_button2.is_pressed and time.monotonic() - timer1 < 5:
                 pass
             if time.monotonic() - timer1 < 5 and len(tracks) > 0:
                 # determine album length and number of tracks
@@ -720,12 +839,12 @@ while True:
                 if lcd_lines == 4:
                     lcd.text(" ",3)
                     lcd.text(" ",4)
-                q = subprocess.Popen(["mplayer","-nocache",Radio_Stns[radio_stn+1]] ,shell=False)
+                q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
                 time.sleep(0.05)
                 lcd.text(">Choose Radio Stn",1)
                 lcd.text(Radio_Stns[radio_stn],2)
                 rs = Radio_Stns[radio_stn] + "                "[0:15]
-                while but_button1.is_pressed:
+                while but_button2.is_pressed:
                     pass
                 time.sleep(1)
                 radio = 1
@@ -923,31 +1042,38 @@ while True:
     # loop while playing Radio
     while radio == 1:
         time.sleep(0.2)
-        # read rotary encoder
-        if old_rotor != rotor.value:
+        # read VOLUME rotary encoder 
+        Read_Rotary_VOLUME()
+        if old_rotor2 != rotor2.value:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             md_start = time.monotonic()
-            Read_Rotors()
-            old_rotor = rotor.value
+            old_rotor2 = rotor2.value
+            time.sleep(0.25)
+        # read rotary encoder
+        Read_Rotor()
+        if old_rotor1 != rotor1.value:
+            bl_on = 1
+            lcd.backlight(turn_on=True)
+            bl_start = time.monotonic()
+            md_start = time.monotonic()
+            old_rotor1 = rotor1.value
             time.sleep(0.25)
         # read rotary button    
-        if but_button2.is_pressed:
+        if but_button1.is_pressed:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             md_start = time.monotonic()
             mode +=1
-            if mode > 5:
+            if mode > 4:
                 mode = 0
             if mode == 0:
                 lcd.text(">Choose Radio Stn",1)
             if mode == 1:
-                mode = 4
+                mode = 3
             if mode == 4:
-                lcd.text(">Set Volume.. " + str(volume),1)
-            elif mode == 5:
                 lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)),1)
             time.sleep(1)
 
@@ -955,10 +1081,34 @@ while True:
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             bl_on = 0
+            defaults[0] = boot_mode
+            defaults[1] = volume 
+            defaults[2] = randomed 
+            defaults[3] = album_mode 
+            defaults[4] = radio_stn
+            defaults[5] = sleep_timer
+               
+            if save_config == 1:   
+               with open(config_file, 'w') as f:
+                 for item in defaults:
+                   f.write("%s\n" % item)
+            save_config = 0
             
         # mode timer
         if time.monotonic() - md_start > md_timeout and mode != 0:
             mode = 0
+            defaults[0] = boot_mode
+            defaults[1] = volume 
+            defaults[2] = randomed 
+            defaults[3] = album_mode 
+            defaults[4] = radio_stn
+            defaults[5] = sleep_timer
+               
+            if save_config == 1:   
+               with open(config_file, 'w') as f:
+                 for item in defaults:
+                   f.write("%s\n" % item)
+            save_config = 0
             
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
@@ -971,7 +1121,7 @@ while True:
                     lcd.text("SHUTDOWN in " + str(t),1)
                 else:
                     lcd.text("STOPPING in " + str(t),1)
-                if but_button2.is_pressed or but_button1.is_pressed:
+                if but_button1.is_pressed or but_button2.is_pressed:
                     sleep_timer_start = time.monotonic()
                     sleep_timer = 900
                     abort_sd = 1
@@ -1026,10 +1176,11 @@ while True:
             if radio_stn < 0:
                radio_stn = len(Radio_Stns) - 2
             q.kill()
-            q = subprocess.Popen(["mplayer","-nocache",Radio_Stns[radio_stn+1]] ,shell=False)
+            q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
             lcd.text(Radio_Stns[radio_stn],2)
             rs = Radio_Stns[radio_stn] + "               "[0:15]
-            time.sleep(1)
+            time.sleep(.25)
+            save_config = 1
             
         # NEXT Radio Station
         if radio_next == 1:
@@ -1040,13 +1191,14 @@ while True:
             if radio_stn > len(Radio_Stns)- 2:
                radio_stn = 0
             q.kill()
-            q = subprocess.Popen(["mplayer","-nocache",Radio_Stns[radio_stn+1]] ,shell=False)
+            q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
             lcd.text(Radio_Stns[radio_stn],2)
             rs = Radio_Stns[radio_stn] + "               "[0:15]
-            time.sleep(1)
+            time.sleep(.25)
+            save_config = 1
             
         # STOP
-        if but_button1.is_pressed:
+        if but_button2.is_pressed:
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             q.kill()
@@ -1056,14 +1208,15 @@ while True:
             md_1 = " "
             md_2 = " "
             md_3 = " "
-            lcd.text(">Artist A-Z",1)
-            titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
-            if lcd_lines == 2:
-                lcd.text(titles[0][0:15],2)
-            if lcd_lines == 4:
-                lcd.text(md_1 + titles[0][0:19],2)
-                lcd.text(md_2 + titles[1][0:19],3)
-                lcd.text(md_3 + titles[2][0:19],4)
+            if len(tracks) > 0:
+                lcd.text(">Artist A-Z",1)
+                titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
+                if lcd_lines == 2:
+                    lcd.text(titles[0][0:15],2)
+                if lcd_lines == 4:
+                    lcd.text(md_1 + titles[0][0:19],2)
+                    lcd.text(md_2 + titles[1][0:19],3)
+                    lcd.text(md_3 + titles[2][0:19],4)
             time.sleep(0.05)
 
                    
@@ -1071,18 +1224,26 @@ while True:
     while MP3_Play == 1 :
         if trace == 1:
              print("MP3_Play == 1",MP3_Play)
-        # read rotary encoder
-        if old_rotor != rotor.value:
+        # read VOLUME rotary encoder 
+        Read_Rotary_VOLUME()
+        if old_rotor2 != rotor2.value:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
             md_start = time.monotonic()
-            Read_Rotors()
-            old_rotor = rotor.value
+            old_rotor2 = rotor2.value
+            time.sleep(0.25)
+        Read_Rotor()
+        if old_rotor1 != rotor1.value:
+            bl_on = 1
+            lcd.backlight(turn_on=True)
+            bl_start = time.monotonic()
+            md_start = time.monotonic()
+            old_rotor1 = rotor1.value
             if trace == 1:
                 print("MP3_Play  read rotors return")
             time.sleep(0.25)
-        if but_button2.is_pressed:
+        if but_button1.is_pressed:
             bl_on = 1
             lcd.backlight(turn_on=True)
             bl_start = time.monotonic()
@@ -1101,6 +1262,19 @@ while True:
         if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0:
             lcd.backlight(turn_on=False)
             bl_on = 0
+            defaults[0] = boot_mode
+            defaults[1] = volume 
+            defaults[2] = randomed 
+            defaults[3] = album_mode 
+            defaults[4] = radio_stn
+            defaults[5] = sleep_timer
+               
+            if save_config == 1:   
+               with open(config_file, 'w') as f:
+                 for item in defaults:
+                   f.write("%s\n" % item)
+            save_config = 0
+                 
         # sleep_timer timer
         if time.monotonic() - sleep_timer_start > sleep_timer and sleep_timer > 0:
             lcd.backlight(turn_on=True)
@@ -1113,7 +1287,7 @@ while True:
                     lcd.text("SHUTDOWN in " + str(t),2)
                 else:
                     lcd.text("STOPPING in " + str(t),2)
-                if but_button1.is_pressed:
+                if but_button2.is_pressed:
                     sleep_timer_start = time.monotonic()
                     sleep_timer = 900
                     abort_sd = 1
@@ -1201,28 +1375,37 @@ while True:
           # loop while playing selected MP3 track
           while poll == None and track_len - played > gap and (time.monotonic() - sleep_timer_start < sleep_timer or sleep_timer == 0):
             time_left = int((sleep_timer - (time.monotonic() - sleep_timer_start))/60)
-            # read rotary encoder
-            if old_rotor != rotor.value:
+            # read VOLUME rotary encoder 
+            Read_Rotary_VOLUME()
+            if old_rotor2 != rotor2.value:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
                 md_start = time.monotonic()
-                Read_Rotors()
-                old_rotor = rotor.value
+                old_rotor2 = rotor2.value
+                time.sleep(0.25)
+            # read rotary encoder
+            if old_rotor1 != rotor1.value:
+                bl_on = 1
+                lcd.backlight(turn_on=True)
+                bl_start = time.monotonic()
+                md_start = time.monotonic()
+                Read_Rotor()
+                old_rotor1 = rotor1.value
                 if trace == 1:
                     print("MP3_Play retrun rotary 2")
                 time.sleep(0.25)
             # read rotary button
-            if but_button2.is_pressed:
+            if but_button1.is_pressed:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
                 md_start = time.monotonic()
                 mode +=1
                 md_3 = " "
-                if mode == 6:
-                    mode = 7
-                if mode > 7:
+                if mode == 5:
+                    mode = 6
+                if mode > 6:
                     mode = 0
                 if mode < 3:
                     mode = 3
@@ -1234,10 +1417,8 @@ while True:
                     else:
                         lcd.text(titles[2][0:19],2)
                 elif mode == 4:
-                    lcd.text(">Set Volume.. " + str(volume),1)
-                elif mode == 5:
                     lcd.text(">Set SLEEP..  " + str(int(sleep_timer/60)),1)
-                elif mode == 7:
+                elif mode == 6:
                     if gapless == 0:
                         lcd.text(">GAPLESS OFF",1)
                     else:
@@ -1250,6 +1431,18 @@ while True:
             if time.monotonic() - bl_start > bl_timeout and bl_timeout > 0 and bl_on == 1:
                 lcd.backlight(turn_on=False)
                 bl_on = 0
+                defaults[0] = boot_mode
+                defaults[1] = volume 
+                defaults[2] = randomed 
+                defaults[3] = album_mode 
+                defaults[4] = radio_stn
+                defaults[5] = sleep_timer
+               
+                if save_config == 1:   
+                    with open(config_file, 'w') as f:
+                        for item in defaults:
+                            f.write("%s\n" % item)
+                    save_config = 0
                 
             # mode timer
             if time.monotonic() - md_start > md_timeout and mode != 3:
@@ -1318,7 +1511,7 @@ while True:
                         xt = 0
                     
             # check for PLAY (STOP) key
-            if but_button1.is_pressed:
+            if but_button2.is_pressed:
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
                 timer1 = time.monotonic()
