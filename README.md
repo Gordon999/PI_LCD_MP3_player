@@ -2,13 +2,13 @@
 
 Not for BOOKWORM 32bit, works with 64bit. Tested on TRIXIE 64bit
 
-A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 1 I2C 2x16 or 4x20 LCD, a KY-040 rotary encoder and a switch to gnd.
+A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 1 I2C 2x16 or 4x20 LCD, 2 x KY-040 rotary encoders.
 
 At boot it will look for mp3 tracks in '/home/USERNAME/Music/artist name/album_name/tracks', and/or on a USB stick, under /media/USERNAME/usb_stick_name/artist name/album_name/tracks
 
-Press rotary encoder button to choose mode to choose Artist/ Album / Track or set Volume, SLEEP, Random, Album or gapless modes.
+Press SELECT rotary encoder button to choose mode to choose Artist/ Album / Track or set Volume, SLEEP, Random, Album, gapless modes and BOOT mode.
 
-Use rotary to set, then press PLAY button to play / stop mp3, or hold for > 5 seconds to choose Radio, use rotary to select Radio station.
+Use SELECT rotary to set, then press PLAY button (on VOLUME rotary) to play / stop mp3, or hold for > 5 seconds to choose Radio, use SELECT rotary to select Radio station.
 
 ## Screenshot
 
