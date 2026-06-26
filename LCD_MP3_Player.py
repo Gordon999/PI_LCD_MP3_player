@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 2.0
+# version 2.1
 
 """Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -490,6 +490,7 @@ if len(tracks) > 0:
 def album_length():
     global aalbum_mode,Track_No,tracks,audio,stimer,ctracks,Tack_No,fTack_No
     cplayed = 0
+    fTack_No = 0
     if aalbum_mode == 1:
         Tack_No = Track_No
         stimer  = 0
@@ -1237,7 +1238,7 @@ while True:
             md_start = time.monotonic()
             old_rotor2 = rotor2.value
             time.sleep(0.25)
-        # redad SELECT rotary encoder
+        # read SELECT rotary encoder
         Read_Rotor()
         if old_rotor1 != rotor1.value:
             bl_on = 1
@@ -1388,8 +1389,9 @@ while True:
                 bl_start = time.monotonic()
                 md_start = time.monotonic()
                 old_rotor2 = rotor2.value
-                time.sleep(0.25)
-            # read rotary encoder
+                time.sleep(0.05)
+            # read SELECT rotary encoder
+            Read_Rotor()
             if old_rotor1 != rotor1.value:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
@@ -1397,10 +1399,8 @@ while True:
                 md_start = time.monotonic()
                 Read_Rotor()
                 old_rotor1 = rotor1.value
-                if trace == 1:
-                    print("MP3_Play retrun rotary 2")
-                time.sleep(0.25)
-            # read rotary button
+                time.sleep(0.05)
+            # read SELECT rotary button
             if but_button1.is_pressed:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
@@ -1442,7 +1442,6 @@ while True:
                 defaults[3] = album_mode 
                 defaults[4] = radio_stn
                 defaults[5] = sleep_timer
-               
                 if save_config == 1:   
                     with open(config_file, 'w') as f:
                         for item in defaults:
@@ -1515,7 +1514,7 @@ while True:
                     if xt > 4:
                         xt = 0
                     
-            # check for PLAY (STOP) key
+            # check for VOLUME button (STOP)
             if but_button2.is_pressed:
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
@@ -1540,8 +1539,6 @@ while True:
                 
             # NEXT TRACK
             if next_ == 1 and len(tracks) > 0 and mode == 3:
-                if trace == 1:
-                    print("Next Track")
                 next_ = 0
                 Track_No +=1
                 if Track_No > len(tracks) - 1:
@@ -1557,8 +1554,6 @@ while True:
                 poll = p.poll()
                 if poll == None:
                     os.killpg(p.pid,SIGTERM)
-                if trace == 1:
-                    print("Track killed",MP3_Play)
                 Track_No -=1
                 time.sleep(0.5)
 
