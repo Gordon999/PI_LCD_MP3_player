@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 2.2
+# version 2.3
 
 """Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -36,7 +36,7 @@ from gpiozero import RotaryEncoder
 rotor1      = RotaryEncoder(16,20,wrap=True,max_steps=99)
 button1     = 12  # SELECT button
 but_button1 = Button(button1)
-rotor2      = RotaryEncoder(5,6,  wrap=False,max_steps=99)
+rotor2      = RotaryEncoder(5,6,  wrap=False,max_steps=20)
 button2     = 13  # VOLUME button
 but_button2 = Button(button2)
 
@@ -56,13 +56,14 @@ album_mode  = 0    # set to 1 for Album Mode,will play an album then stop *
 randomed    = 1    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode) *
 radio_stn   = 0    # selected radio station at startup *
 volume      = 30   # range 0 - 100 *
+max_volume  = 80
 sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable *
 sleep_shut  = 1    # set to 1 to shutdown when sleep times out
 show_clock  = 0    # set to 1 to show clock time, only use if on internet / RTC fitted
 use_USB     = 1    # set to 0 if you only use /home/USERNAME/Music/Artist/Album/... on SD card
 bl_timeout  = 30   # backlight timeout in seconds,set to 0 to disable
 md_timeout  = 20   # timeout to switch back to main mode in seconds
-gapless     = 0    # set to 1 for gapless play
+gapless     = 0    # set to 1 for gapless play *
 gaptime     = 2    # set pre-start time for gapless,in seconds
 
 # NOTE * These settings will be overridden by the config file stored after the first run.
@@ -91,13 +92,13 @@ if os.path.exists ("radio_stns.txt"):
             line = textobj.readline()
 
 # check LCD_ConfigX.txt exists, if not then write default values
-config_file = "LCD_Config1.txt"
+config_file = "LCD_Config2.txt"
 # delete config file if size = 0
 if os.path.exists(config_file) and os.path.getsize(config_file) == 0:
 	os.remove(config_file)
 # write the config file if required
 if not os.path.exists(config_file):
-    defaults = [boot_mode,volume,randomed,album_mode,radio_stn,sleep_timer]
+    defaults = [boot_mode,volume,randomed,album_mode,radio_stn,sleep_timer,gapless]
     with open(config_file, 'w') as f:
         for item in defaults:
             f.write("%s\n" % item)
@@ -116,40 +117,42 @@ randomed    = defaults[2]
 album_mode  = defaults[3]
 radio_stn   = defaults[4]
 sleep_timer = defaults[5]
+gapless     = defaults[6]
 
 # initialise parameters
-Track_No    = 0
-old_album   = ""
-old_artist  = ""
-titles      = [0,0,0,0,0,0,0]
-itles       = [0,0,0,0,0,0,0]
-sleep_timer = sleep_timer * 60
-freedisk    = ["0","0","0","0"]
-old_secs    = "00"
-old_secs2   = "00"
-bl_on       = 1
-album       = 0
-stimer      = 0
-ctracks     = 0
-cplayed     = 0
-atimer      = time.monotonic()
-aalbum_mode = album_mode
-played_pc   = 0
-old_rotor1  = 0
-old_rotor2  = 0
-old_volume = volume
-button_play = 0
-next_       = 0
-prev_       = 0
-mode        = 0
-radio_next  = 0
-radio_prev  = 0
-md_1        = " "
-md_2        = " "
-md_3        = " "
-trace       = 0
-a           = 0
-save_config = 0
+Track_No     = 0
+old_album    = ""
+old_artist   = ""
+titles       = [0,0,0,0,0,0,0]
+itles        = [0,0,0,0,0,0,0]
+sleep_timer  = sleep_timer * 60
+freedisk     = ["0","0","0","0"]
+old_secs     = "00"
+old_secs2    = "00"
+bl_on        = 1
+album        = 0
+stimer       = 0
+ctracks      = 0
+cplayed      = 0
+atimer       = time.monotonic()
+aalbum_mode  = album_mode
+played_pc    = 0
+old_rotor1   = 0
+rotor2.value = ((volume/100)*2) - 1
+old_rotor2   = rotor2.value
+old_volume   = volume
+button_play  = 0
+next_        = 0
+prev_        = 0
+mode         = 0
+radio_next   = 0
+radio_prev   = 0
+md_1         = " "
+md_2         = " "
+md_3         = " "
+trace        = 0
+a            = 0
+save_config  = 0
 
 # reload MP3 tracks
 def reload():
@@ -223,6 +226,7 @@ def Read_Rotor():
                 else:
                     gap = gaptime
                     tracks.sort()
+                save_config = 1
             elif mode == 7:
                 aalbum_mode = 1
                 lcd.text(">ALBUM MODE ON ",1)
@@ -258,8 +262,6 @@ def Read_Rotor():
                 mode = 3
                 status()
                 next_ = 1
-                if trace == 1:
-                    print("MP3_Play1")
         else:
             old_rotor1 = rotor1.value
             if mode == 4:
@@ -294,6 +296,7 @@ def Read_Rotor():
                 elif randomed ==0:
                     gap = 0
                     tracks.sort()
+                save_config = 1
             elif mode == 7:
                 aalbum_mode = 0
                 lcd.text(">ALBUM MODE OFF ",1)
@@ -332,13 +335,10 @@ def Read_Rotor():
 
 # read VOLUME rotary encoder 
 def Read_Rotary_VOLUME():
-    global old_rotor2,volume,save_config
+    global old_rotor2,volume,save_config,max_volume
     if old_rotor2 != rotor2.value:
-        if rotor2.value > old_rotor2:
-            volume +=5
-        else:
-            volume -=5
-        volume = min(volume,100)
+        volume = int(((rotor2.value + 1)/2) * 100)
+        volume = min(volume,max_volume)
         volume = max(volume,0)
         if len(alsaaudio.mixers()) > 0:
             m.setvolume(volume)
@@ -648,7 +648,7 @@ while True:
             bl_start = time.monotonic()
             md_start = time.monotonic()
             old_rotor1 = rotor1.value
-            time.sleep(0.25)
+            time.sleep(0.05)
         # read rotary button
         if but_button1.is_pressed:
             lcd.backlight(turn_on=True)
@@ -744,6 +744,7 @@ while True:
             defaults[3] = album_mode 
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
+            defaults[6] = gapless
             if save_config == 1:   
                with open(config_file, 'w') as f:
                  for item in defaults:
@@ -763,6 +764,7 @@ while True:
             defaults[3] = album_mode 
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
+            defaults[6] = gapless
                
             if save_config == 1:   
                with open(config_file, 'w') as f:
@@ -1055,7 +1057,7 @@ while True:
             bl_start = time.monotonic()
             md_start = time.monotonic()
             old_rotor2 = rotor2.value
-            time.sleep(0.25)
+            time.sleep(0.05)
         # read SELECT rotary encoder
         Read_Rotor()
         if old_rotor1 != rotor1.value:
@@ -1064,7 +1066,7 @@ while True:
             bl_start = time.monotonic()
             md_start = time.monotonic()
             old_rotor1 = rotor1.value
-            time.sleep(0.25)
+            time.sleep(0.05)
         # read rotary button    
         if but_button1.is_pressed:
             bl_on = 1
@@ -1092,6 +1094,7 @@ while True:
             defaults[3] = album_mode 
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
+            defaults[6] = gapless
                
             if save_config == 1:   
                with open(config_file, 'w') as f:
@@ -1108,6 +1111,7 @@ while True:
             defaults[3] = album_mode 
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
+            defaults[6] = gapless
                
             if save_config == 1:   
                with open(config_file, 'w') as f:
@@ -1237,7 +1241,7 @@ while True:
             bl_start = time.monotonic()
             md_start = time.monotonic()
             old_rotor2 = rotor2.value
-            time.sleep(0.25)
+            time.sleep(0.05)
         # read SELECT rotary encoder
         Read_Rotor()
         if old_rotor1 != rotor1.value:
@@ -1248,7 +1252,7 @@ while True:
             old_rotor1 = rotor1.value
             if trace == 1:
                 print("MP3_Play  read rotors return")
-            time.sleep(0.25)
+            time.sleep(0.05)
         if but_button1.is_pressed:
             bl_on = 1
             lcd.backlight(turn_on=True)
@@ -1274,6 +1278,7 @@ while True:
             defaults[3] = album_mode 
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
+            defaults[6] = gapless
                
             if save_config == 1:   
                with open(config_file, 'w') as f:
@@ -1442,6 +1447,7 @@ while True:
                 defaults[3] = album_mode 
                 defaults[4] = radio_stn
                 defaults[5] = sleep_timer
+                defaults[6] = gapless
                 if save_config == 1:   
                     with open(config_file, 'w') as f:
                         for item in defaults:
