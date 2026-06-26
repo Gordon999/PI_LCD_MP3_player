@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 2.1
+# version 2.2
 
 """Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -189,7 +189,7 @@ def Read_Rotor():
     if old_rotor1 != rotor1.value:
         md_start = time.monotonic()
         if rotor1.value < old_rotor1:
-            old_rotor1 = rotor1.value
+            #old_rotor1 = rotor1.value
             if mode == 4:
                 sleep_timer +=900
                 if sleep_timer > 7200:
