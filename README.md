@@ -6,7 +6,7 @@ A simple MP3 Player and Internet Radio Player using a Raspberry Pi, 1 I2C 2x16 o
 
 At boot it will look for mp3 tracks in '/home/USERNAME/Music/artist name/album_name/tracks', and/or on a USB stick, under /media/USERNAME/usb_stick_name/artist name/album_name/tracks
 
-Press SELECT rotary encoder button to choose mode to choose Artist/ Album / Track or set Volume, SLEEP, Random, Album, gapless modes and BOOT mode.
+Press SELECT rotary encoder button to choose mode to choose Artist/ Album / Track, SLEEP, Random, Album, Gapless modes or BOOT mode.
 
 Use SELECT rotary to set, then press PLAY button (on VOLUME rotary) to play / stop mp3, or hold for > 5 seconds to choose Radio, use SELECT rotary to select Radio station.
 
