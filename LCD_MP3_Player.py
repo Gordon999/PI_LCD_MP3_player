@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 2.3
+# version 2.5
 
 """Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy
@@ -33,10 +33,10 @@ import alsaaudio
 # setup rotary encoders
 from gpiozero import Button
 from gpiozero import RotaryEncoder
-rotor1      = RotaryEncoder(16,20,wrap=True,max_steps=99)
+rotor1      = RotaryEncoder(16,20,wrap=True,max_steps=32)
 button1     = 12  # SELECT button
 but_button1 = Button(button1)
-rotor2      = RotaryEncoder(5,6,  wrap=False,max_steps=20)
+rotor2      = RotaryEncoder(5,6,  wrap=False,max_steps=32)
 button2     = 13  # VOLUME button
 but_button2 = Button(button2)
 
@@ -53,10 +53,10 @@ signal(SIGHUP,safe_exit)
 lcd_lines   = 2    # 2 or 4 dependent on i2c lcd display used
 boot_mode   = 0    # 0 = STOPPED, 1 = MP3 PLAY, 2 = RADIO PLAY *
 album_mode  = 0    # set to 1 for Album Mode,will play an album then stop *
-randomed    = 1    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode) *
+randomed    = 0    # 0 = SORTED, 1 = RANDOMISED (not available if in album mode) *
 radio_stn   = 0    # selected radio station at startup *
 volume      = 30   # range 0 - 100 *
-max_volume  = 80
+max_volume  = 80   # set MAXIMUM volume
 sleep_timer = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 0 to disable *
 sleep_shut  = 1    # set to 1 to shutdown when sleep times out
 show_clock  = 0    # set to 1 to show clock time, only use if on internet / RTC fitted
@@ -184,15 +184,18 @@ def reload():
     time.sleep(1)
 
 # read SELECT rotary encoder
-def Read_Rotor():
-    global volume,mixername,m,old_rotor2,old_rotor1,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start
-    global RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace,randomed,radio,boot_mode,save_config,md_start
+def Read_Rotor_SELECT():
+    global volume,mixername,m,old_rotor1,MP3_Play,next_,prev_,radio_next,radio_prev,mode,sleep_timer,sleep_timer_start
+    global RANDOM,gapless,gap,gaptime,tracks,aalbum_mode,mode,trace,randomed,radio,boot_mode,save_config,md_start,bl_start,bl_on
     if trace == 1:
-        print("read rotary")
+        print("read rotary SELECT",rotor1.value)
     if old_rotor1 != rotor1.value:
         md_start = time.monotonic()
+        bl_on = 1
+        lcd.backlight(turn_on=True)
+        bl_start = time.monotonic()
         if rotor1.value < old_rotor1:
-            #old_rotor1 = rotor1.value
+            old_rotor1 = rotor1.value
             if mode == 4:
                 sleep_timer +=900
                 if sleep_timer > 7200:
@@ -335,8 +338,15 @@ def Read_Rotor():
 
 # read VOLUME rotary encoder 
 def Read_Rotary_VOLUME():
-    global old_rotor2,volume,save_config,max_volume
+    global old_rotor2,volume,save_config,max_volume,md_start,bl_start,bl_on
+    if trace == 1:
+        print("read rotary VOLUME",rotor2.value)
     if old_rotor2 != rotor2.value:
+        old_rotor2 = rotor2.value
+        md_start = time.monotonic()
+        bl_on = 1
+        lcd.backlight(turn_on=True)
+        bl_start = time.monotonic()
         volume = int(((rotor2.value + 1)/2) * 100)
         volume = min(volume,max_volume)
         volume = max(volume,0)
@@ -610,6 +620,7 @@ if len(tracks) > 0:
         lcd.text(md_3 + titles[2][0:19],4)
 else:
     lcd.text("No tracks found...",1)
+    lcd.text("HOLD PLAY for RADIO",2)
     
 time.sleep(0.05)
 
@@ -633,22 +644,22 @@ while True:
         time.sleep(0.1)
         # read VOLUME rotary encoder 
         Read_Rotary_VOLUME()
-        if old_rotor2 != rotor2.value:
-            bl_on = 1
-            lcd.backlight(turn_on=True)
-            bl_start = time.monotonic()
-            md_start = time.monotonic()
-            old_rotor2 = rotor2.value
-            time.sleep(0.05)
+        #if old_rotor2 != rotor2.value:
+	    #	old_rotor2 = rotor2.value
+        #    bl_on = 1
+        #    lcd.backlight(turn_on=True)
+        #    bl_start = time.monotonic()
+        #    md_start = time.monotonic()
+        #    time.sleep(0.05)
         # read rotary encoder 
-        Read_Rotor()
-        if old_rotor1 != rotor1.value:
-            bl_on = 1
-            lcd.backlight(turn_on=True)
-            bl_start = time.monotonic()
-            md_start = time.monotonic()
-            old_rotor1 = rotor1.value
-            time.sleep(0.05)
+        Read_Rotor_SELECT()
+        #if old_rotor1 != rotor1.value:
+	    #	old_rotor1 = rotor1.value
+        #    bl_on = 1
+        #    lcd.backlight(turn_on=True)
+        #    bl_start = time.monotonic()
+        #    md_start = time.monotonic()
+        #    time.sleep(0.05)
         # read rotary button
         if but_button1.is_pressed:
             lcd.backlight(turn_on=True)
@@ -731,7 +742,7 @@ while True:
                 lcd.text(md_3 + titles[2][0:19],4)
           else:
                 lcd.text("No MP3 tracks",1)
-                lcd.text(" ",2)
+                lcd.text("HOLD 5s for RADIO",2)
           time.sleep(0.5)
 
         # backlight OFF timer
@@ -765,7 +776,6 @@ while True:
             defaults[4] = radio_stn
             defaults[5] = sleep_timer
             defaults[6] = gapless
-               
             if save_config == 1:   
                with open(config_file, 'w') as f:
                  for item in defaults:
@@ -860,8 +870,6 @@ while True:
                 
         # NEXT ALBUM 
         if next_ == 1 and len(tracks) > 0 and mode == 2:
-            lcd.backlight(turn_on=True)
-            time.sleep(0.2)
             next_ = 0
             while titles[1] == old_album and titles[0] == old_artist:
                 Track_No +=1
@@ -870,7 +878,6 @@ while True:
                 titles[0],titles[1],titles[2],titles[3],titles[4],titles[5],titles[6] = tracks[Track_No].split("/")
             old_album  = titles[1]
             #old_artist = titles[0]
-            time.sleep(0.05)
             if lcd_lines == 2:
                 lcd.text(titles[1][0:15],2)
             elif lcd_lines == 4:
@@ -933,7 +940,6 @@ while True:
                 
         # PREVIOUS ALBUM 
         if  prev_ == 1 and len(tracks) > 0 and mode == 2:
-            lcd.backlight(turn_on=True)
             prev_ = 0
             while titles[1] == old_album and titles[0] == old_artist:
                 Track_No -=1
@@ -1059,7 +1065,7 @@ while True:
             old_rotor2 = rotor2.value
             time.sleep(0.05)
         # read SELECT rotary encoder
-        Read_Rotor()
+        Read_Rotor_SELECT()
         if old_rotor1 != rotor1.value:
             bl_on = 1
             lcd.backlight(turn_on=True)
@@ -1243,7 +1249,7 @@ while True:
             old_rotor2 = rotor2.value
             time.sleep(0.05)
         # read SELECT rotary encoder
-        Read_Rotor()
+        Read_Rotor_SELECT()
         if old_rotor1 != rotor1.value:
             bl_on = 1
             lcd.backlight(turn_on=True)
@@ -1396,13 +1402,13 @@ while True:
                 old_rotor2 = rotor2.value
                 time.sleep(0.05)
             # read SELECT rotary encoder
-            Read_Rotor()
+            Read_Rotor_SELECT()
             if old_rotor1 != rotor1.value:
                 bl_on = 1
                 lcd.backlight(turn_on=True)
                 bl_start = time.monotonic()
                 md_start = time.monotonic()
-                Read_Rotor()
+                Read_Rotor_SELECT()
                 old_rotor1 = rotor1.value
                 time.sleep(0.05)
             # read SELECT rotary button
