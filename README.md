@@ -10,9 +10,9 @@ Press SELECT rotary encoder button to choose mode to choose Artist/ Album / Trac
 
 Use SELECT rotary to set, then press PLAY button (on VOLUME rotary) to play / stop mp3, or hold for > 5 seconds to choose Radio, use SELECT rotary to select Radio station.
 
-## Screenshot
+## Front Panel
 
-![screenshot](Front_panel.jpg)
+![Front Panel](Front_panel.jpg)
 
 
 ## Connections
