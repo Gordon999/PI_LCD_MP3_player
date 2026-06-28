@@ -12,7 +12,7 @@ Use SELECT rotary to set, then press PLAY button (on VOLUME rotary) to play / st
 
 ## Screenshot
 
-![screenshot](IMG_20250826_131808.gif)
+![screenshot](Front_panel.jpg)
 
 
 ## Connections
