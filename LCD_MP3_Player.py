@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# version 2.6
+# version 2.7
 
 """Copyright (c) 2026
 Permission is hereby granted,free of charge,to any person obtaining a copy of this 
@@ -39,7 +39,7 @@ sleep_timer  = 0    # sleep_timer timer in minutes,use 15,30,45,60 etc...set to 
 sleep_shutdn = 1    # set to 1 to shutdown when sleep times out
 gapless      = 0    # set to 1 for gapless play *
 gaptime      = 2    # set pre-start time for gapless,in seconds
-show_clock   = 0    # set to 1 to show clock time, only use if on internet / RTC fitted
+show_clock   = 1    # set to 1 to show clock time, only use if on internet / RTC fitted
 use_USB      = 1    # set to 0 if you only use /home/USERNAME/Music/Artist/Album/... on SD card
 bl_timeout   = 30   # backlight timeout in seconds,set to 0 to disable
 md_timeout   = 10   # timeout to switch back to main mode in seconds
@@ -1433,8 +1433,8 @@ while True:
                     track_n = str(Track_No+1) + "     "
                 else:
                     track_n = str(cplayed) + "/" + str(ctracks) + "       "
-                if xt < 2:
-                    lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%",1)
+                if xt == 0 and lcd_lines == 2:
+                    lcd.text("Artist:",1)
                     if lcd_lines == 2 and len(titles[0]) > 16:
                         if a < len(titles[0])-14:
                             lcd.text(titles[0][a:a+16],2)
@@ -1443,9 +1443,8 @@ while True:
                             a = 0
                     elif lcd_lines == 2:
                         lcd.text(titles[0],2)
-                elif xt == 2:
-                    status()
-                    lcd.text("Status...  " +  txt,1)
+                elif xt == 1 and lcd_lines == 2:
+                    lcd.text("Album:",1)
                     if lcd_lines == 2 and len(titles[1]) > 16:
                         if a < len(titles[1])-14:
                             lcd.text(titles[1][a:a+16],2)
@@ -1454,15 +1453,8 @@ while True:
                             a = 0
                     elif lcd_lines == 2:
                         lcd.text(titles[1],2)
-                elif xt == 3 and sleep_timer != 0:
-                    time_left = int((sleep_timer - (time.monotonic() - sleep_timer_start))/60)
-                    lcd.text("SLEEP: " + str(time_left) + " mins",1)
-                    time.sleep(0.05)
-                elif xt == 4 or (xt == 3 and sleep_timer == 0):
-                    if show_clock == 1:
-                        now = datetime.datetime.now()
-                        clock = now.strftime("%H:%M:%S")
-                        lcd.text(str(clock),1)
+                elif (xt < 2 and lcd_lines == 4) or (xt == 2 and lcd_lines == 2):
+                    lcd.text("Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%",1)
                     if lcd_lines == 2 and len(titles[2]) > 16:
                         if a < len(titles[2])-14:
                             lcd.text(titles[2][a:a+16],2)
@@ -1471,10 +1463,30 @@ while True:
                             a = 0
                     elif lcd_lines == 2:
                         lcd.text(titles[2],2)
-                if time.monotonic() - timer2 > 5:      
+                elif xt == 3 and sleep_timer != 0:
+                    time_left = int((sleep_timer - (time.monotonic() - sleep_timer_start))/60)
+                    lcd.text("SLEEP: " + str(time_left) + " mins",1)
+                    if lcd_lines == 2:
+                        lcd.text(" ",2)
+                    time.sleep(0.05)
+                elif xt == 4 and show_clock == 1:
+                    now = datetime.datetime.now()
+                    clock = now.strftime("%H:%M:%S")
+                    lcd.text(str(clock),1)
+                    if lcd_lines == 2:
+                        lcd.text(" ",2)
+                elif xt == 5:
+                    status()
+                    lcd.text("Status...  " +  txt,1)
+                    if lcd_lines == 2:
+                        lcd.text("           ",2)
+                                
+                if time.monotonic() - timer2 > 4:      
                     xt +=1
                     timer2 = time.monotonic()
-                    if xt > 4:
+                    if lcd_lines == 2 and xt == 3:
+                        lcd.text(titles[2],2)
+                    if xt > 5:
                         xt = 0
                     
             # check for VOLUME button (STOP)
