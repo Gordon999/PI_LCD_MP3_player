@@ -22,6 +22,8 @@ Use SELECT rotary to set, then press PLAY button (on VOLUME rotary) to play / st
 
 To install:
 
+Setup your audio amd internet connection as required.
+
 Copy LCD_MP3_player.py to /home/USERNAME
 
 (NOTE: I am suggesting the use of --break-system-packages, this shouldn't be an issue if using this in a standalone
