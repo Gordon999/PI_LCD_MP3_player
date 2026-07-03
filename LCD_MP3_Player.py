@@ -27,7 +27,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 
 # code version
-version = 3.1
+version = 3.2
 
 # set starting variables
 lcd_lines    = 2    # 2 or 4 dependent on i2c lcd display used
@@ -624,10 +624,11 @@ else:
              line = file.readline()
 lcd.text("Tracks: " + str(len(tracks)),1)
 
-if randomed == 1:
-    shuffle(tracks)
-else:
-    tracks.sort()
+if len(tracks) > 0:
+    if randomed == 1:
+        shuffle(tracks)
+    else:
+        tracks.sort()
         
 # At power on
 if boot_mode == 0:
@@ -824,24 +825,71 @@ while True:
                 menu +=1
                 if menu == 0:
                     lcd.text(">Set Artist A-Z",1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[0],2)
                 elif menu == 1:
                     lcd.text(">Set Artist",1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[0],2)
                 elif menu == 2:
                     lcd.text(">Set Album",1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[1],2)
                 elif menu == 3:
                     lcd.text(">Set Track",1)
+                    if lcd_lines == 2:
+                        lcd.text(titles[2][:-4],2)
                 elif menu == 4:
-                    lcd.text(">Set SLEEP.. " + str(int(sleep_timer)),1)
+                    lcd.text(">Set SLEEP ",1)
+                    if lcd_lines == 2:
+                        if sleep_timer == 0:
+                            lcd.text("OFF",2)
+                        else:
+                            lcd.text(str(int(sleep_timer)),2)
                 elif menu == 5:
-                    lcd.text(">Set RANDOM ",1)
+                    lcd.text(">Set RANDOM",1)
+                    if lcd_lines == 2:
+                        if randomed == 1:
+                            lcd.text("ON",2)
+                        else:
+                            lcd.text("OFF",2)
                 elif menu == 6:
-                    lcd.text(">Set GAPLESS ",1)
+                    lcd.text(">Set GAPLESS",1)
+                    if lcd_lines == 2:
+                        if gapless == 1:
+                            lcd.text("ON",2)
+                        else:
+                            lcd.text("OFF",2)
                 elif menu == 7:
-                     lcd.text(">Set ALBUM MODE ",1)
+                    lcd.text(">Set ALBUM MODE",1)
+                    if lcd_lines == 2:
+                        if album_mode == 1:
+                            lcd.text("ON",2)
+                        else:
+                            lcd.text("OFF",2)
                 elif menu == 8:
                     lcd.text(">Set BOOT MODE",1)
+                    if lcd_lines == 2:
+                        if boot_mode == 0:
+                            lcd.text("STOPPED",2)
+                        elif boot_mode == 1:
+                            lcd.text("MP3 PLAY",2)
+                        elif boot_mode == 2:
+                            lcd.text("RADIO PLAY",2)
                 elif menu == 9:
-                    lcd.text(">RELOAD ",1)
+                    lcd.text(">RELOAD TRACKS",1)
+                    lcd.text(" ",2)
+                defaults[0] = boot_mode
+                defaults[1] = volume 
+                defaults[2] = randomed 
+                defaults[3] = album_mode 
+                defaults[4] = radio_stn
+                defaults[5] = gapless
+                if save_config == 1:   
+                    with open(config_file, 'w') as f:
+                        for item in defaults:
+                            f.write("%s\n" % item)
+                    save_config = 0
             time.sleep(0.5)
         else: 
           if len(tracks) > 0:
