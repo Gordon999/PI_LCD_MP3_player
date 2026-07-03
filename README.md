@@ -16,7 +16,9 @@ Rotating the PLAY rotary encoder will set the VOLUME.
 
 Rotating the SELECT rotary encoder whilst playing will select the NEXT / PREVIOUS Track / Radio Station.
 
-Selecting ALBUM MODE will play the selected ALBUM and then stop.
+Selecting ALBUM MODE will play the selected ALBUM and then stop. Setting SLEEP ON in ALBUM MODE will set the sleep timer to the length of the album.
+
+BOOT MODES are STOPPED, MP3 PLAY or RADIO.
 
 ## Front Panel
 
