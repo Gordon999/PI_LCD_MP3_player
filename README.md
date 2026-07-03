@@ -22,7 +22,7 @@ Selecting ALBUM MODE will play the selected ALBUM and then stop. Setting SLEEP O
 
 BOOT MODES are STOPPED, MP3 PLAY or RADIO.
 
-## Front Panel
+## Front Panel 
 
 ![Front Panel](Front_panel.jpg)
 
