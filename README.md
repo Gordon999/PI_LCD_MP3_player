@@ -16,6 +16,8 @@ Rotating the PLAY rotary encoder will set the VOLUME.
 
 Rotating the SELECT rotary encoder whilst playing will select the NEXT / PREVIOUS Track / Radio Station.
 
+Pressing the SELECT rotary button whilst playing MP3s will let you set SLEEP time with the rotary, pressing again will let you set GAPLESS ON / OFF.
+
 Selecting ALBUM MODE will play the selected ALBUM and then stop. Setting SLEEP ON in ALBUM MODE will set the sleep timer to the length of the album.
 
 BOOT MODES are STOPPED, MP3 PLAY or RADIO.
