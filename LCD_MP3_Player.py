@@ -27,7 +27,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 
 # code version
-version = 3.2
+version = 3.3
 
 # set starting variables
 lcd_lines    = 2    # 2 or 4 dependent on i2c lcd display used
@@ -144,6 +144,10 @@ trace           = 0
 a               = 0
 save_config     = 0
 menu            = 0
+if lcd_lines == 2:
+	length = 15
+else:
+	length = 19
 
 # reload MP3 tracks
 def reload():
@@ -1039,7 +1043,7 @@ while True:
                 q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
                 time.sleep(0.05)
                 lcd.text(">Choose Radio Stn",1)
-                lcd.text(Radio_Stns[radio_stn],2)
+                lcd.text(Radio_Stns[radio_stn][0:length],2)
                 rs = Radio_Stns[radio_stn] + "                "[0:15]
                 while button_VOL.is_pressed:
                     pass
@@ -1367,7 +1371,7 @@ while True:
                radio_stn = len(Radio_Stns) - 2
             q.kill()
             q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
-            lcd.text(Radio_Stns[radio_stn],2)
+            lcd.text(Radio_Stns[radio_stn][0:length],2)
             rs = Radio_Stns[radio_stn] + "               "[0:15]
             time.sleep(.25)
             save_config = 1
@@ -1382,7 +1386,7 @@ while True:
                radio_stn = 0
             q.kill()
             q = subprocess.Popen(["cvlc",Radio_Stns[radio_stn+1]] ,shell=False)
-            lcd.text(Radio_Stns[radio_stn],2)
+            lcd.text(Radio_Stns[radio_stn][0:length],2)
             rs = Radio_Stns[radio_stn] + "               "[0:15]
             time.sleep(.25)
             save_config = 1
