@@ -27,7 +27,7 @@ from mutagen.mp3 import MP3
 import alsaaudio
 
 # code version
-version = 3.3
+version = 3.4
 
 # set starting variables
 lcd_lines    = 2    # 2 or 4 dependent on i2c lcd display used
@@ -823,7 +823,8 @@ while True:
                     elif boot_mode == 2:
                         lcd.text(">BOOT: RADIO PLAY",1)
                 elif mode == 9:
-                    lcd.text(">RELOAD TRACKS",1)
+                    lcd.text(">RELOADING TRACKS",1)
+                    reload()
             else:
                 mode = -1
                 menu +=1
