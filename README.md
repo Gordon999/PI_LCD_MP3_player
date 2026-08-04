@@ -43,9 +43,19 @@ pi BUT if not then learn how to use venv !!)
 
 and then
 
-sudo apt-get install python3-alsaaudio
+# For 16x2 or 20x4 LCD
 
 sudo pip3 install rpi_lcd --break-system-packages
+
+# To install SSD1306 driver...
+
+    sudo pip3 install adafruit-circuitpython-ssd1306
+    
+    sudo pip3 install adafruit-blinka
+    
+    sudo pip3 install pillow
+
+sudo apt-get install python3-alsaaudio
 
 sudo apt-get install mplayer
 
