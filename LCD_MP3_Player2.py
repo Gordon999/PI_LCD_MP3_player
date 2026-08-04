@@ -22,17 +22,18 @@ import subprocess
 import os,sys
 import time
 import datetime
+from datetime import timedelta
 from random import shuffle
 from mutagen.mp3 import MP3
 import alsaaudio
 from signal import signal,SIGTERM,SIGHUP,pause
 
 # code version
-version = 3.5
+version = 3.6
 
 # set starting variables
-lcd_type     = 1    # 0 = 16x2 or 20x4 LCD, 1 = OLED SSD1306
-lcd_lines    = 4    # dependent on i2c lcd display used
+lcd_type     = 0    # 0 = 16x2 or 20x4 LCD, 1 = OLED SSD1306
+lcd_lines    = 2    # dependent on i2c lcd display used
 boot_mode    = 0    # Action at BOOT, 0 = STOPPED, 1 = MP3 PLAY, 2 = RADIO PLAY *
 album_mode   = 0    # set to 1 for Album Mode,will play an album then stop *
 randomed     = 0    # 0 = SORTED, 1 = RANDOMED (not available if in album mode) *
@@ -65,8 +66,17 @@ button_SEL = Button(SEL_button)
 VOL_rotor  = RotaryEncoder(5,6,  wrap=False,max_steps=32)
 VOL_button = 13  # VOLUME button
 button_VOL = Button(VOL_button)
+    
+if lcd_type == 0: # 16x2 or 20x4 LCD
+	# setup LCD
+    from rpi_lcd import LCD
+    lcd = LCD()
+    def safe_exit(signum,frame):
+        exit(1)
+    signal(SIGTERM,safe_exit)
+    signal(SIGHUP,safe_exit)
 
-if lcd_type == 1: # OLED SSD 1306
+elif lcd_type == 1: # OLED SSD 1306
     # setup OLED
     # To install SSD1306 driver...
     # pip3 install adafruit-circuitpython-ssd1306
@@ -83,27 +93,12 @@ if lcd_type == 1: # OLED SSD 1306
     from PIL import ImageFont
     i2c = busio.I2C(board.SCL, board.SDA)
     display = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
-    display.fill(0)
-    display.show()
-    image = Image.new("1", (display.width, display.height))
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
-    RST = None
+    image  = Image.new("1", (display.width, display.height))
+    draw   = ImageDraw.Draw(image)
+    font   = ImageFont.load_default()
     width  = display.width
     height = display.height
-    draw.rectangle((0,0,width,height), outline=0, fill=0)
-    top = -2
-    font = ImageFont.load_default()
-    
-elif lcd_type == 0: # 16x2 or 20x4 LCD
-	# setup LCD
-    from rpi_lcd import LCD
-    lcd = LCD()
-    def safe_exit(signum,frame):
-        exit(1)
-    signal(SIGTERM,safe_exit)
-    signal(SIGHUP,safe_exit)
-
+    top    = -2
 
 # read stations.txt (Station Name,URL)
 if os.path.exists ("radio_stns.txt"): 
@@ -180,6 +175,8 @@ msg1            = "MP3 Player: v" + str(version)
 msg2            = ""
 msg3            = ""
 msg4            = ""
+msg5            = ""
+MP3_Play        = 0
 if lcd_lines == 2:
 	length = 15
 elif lcd_type == 0:
@@ -188,24 +185,26 @@ else:
 	length = 23
 	
 def display_screen():
-    global image,top,msg1,msg2,msg3,msg4,width,height,font,display,lcd_type,lcd_lines,backlight_on
-    if lcd_type == 1:
-        # Display image.
-        draw.rectangle((0,0,width,height), outline=0, fill=0)
-        if backlight_on == 1:
-            draw.text((0, top + 0), msg1,  font=font, fill=255)
-            draw.text((0, top + 8), msg2,  font=font, fill=255)
-            draw.text((0, top + 16),msg3,  font=font, fill=255)
-            draw.text((0, top + 24),msg4,  font=font, fill=255)
-        display.image(image)
-        display.show()
-    elif lcd_type == 0:
+    global image,top,msg1,msg2,msg3,msg4,msg5,width,height,font,display,lcd_type,lcd_lines,backlight_on,MP3_Play
+    if lcd_type == 0:
+		# LCD display
         lcd.text(msg1,1) 
         lcd.text(msg2,2) 
         if lcd_lines == 4:
             lcd.text(msg3,3) 
             lcd.text(msg4,4) 
-display_screen()
+    elif lcd_type == 1:
+        # OLED display
+        draw.rectangle((0,0,width,height), outline=0, fill=0)
+        if backlight_on == 1:
+            draw.text((0, top + 0), msg1,  font=font, fill=255)
+            draw.text((0, top + 16),msg2,  font=font, fill=255)
+            draw.text((0, top + 28),msg3,  font=font, fill=255)
+            draw.text((0, top + 40),msg4,  font=font, fill=255)
+            if MP3_Play == 1:
+                draw.text((0, top + 56),msg5,  font=font, fill=255)
+        display.image(image)
+        display.show()
 
 # reload MP3 tracks
 def reload():
@@ -296,7 +295,7 @@ def Read_Rotor_SELECT():
                         else:
                             msg2 = "OFF"
                 elif menu == 6:
-                    msg1 = ">Set GAPLESS",1
+                    msg1 = ">Set GAPLESS"
                     if lcd_lines == 2:
                         if gapless == 1:
                             msg2 = "ON"
@@ -1805,6 +1804,7 @@ while True:
                         msg2 = titles[1]
                 elif (xt < 2 and lcd_lines == 4) or (xt == 2 and lcd_lines == 2):
                     msg1 = "Track:" + str(track_n)[0:5] + "  " + str(played_pc)[-2:] + "%"
+                   
                     if lcd_lines == 2 and len(titles[2]) > length:
                         if a < len(titles[2])-(length-2):
                             msg2 = titles[2][a:a+length]
@@ -1816,12 +1816,14 @@ while True:
                 elif xt == 3 and sleep_timer != 0 and lcd_lines == 4:
                     time_left = int(((sleep_timer * 60) - (time.monotonic() - sleep_timer_start))/60)
                     msg1 = "SLEEP: " + str(time_left) + " mins"
+
                 elif xt == 4 and show_clock == 1:
                     now = datetime.datetime.now()
                     clock = now.strftime("%H:%M:%S")
                     msg1 = str(clock)
                     if lcd_lines == 2:
                         msg2 = "        "
+
                 elif xt == 5:
                     status()
                     msg1 = "Status...  " +  txt
@@ -1831,6 +1833,9 @@ while True:
                         else:
                             time_left = int(((sleep_timer * 60) - (time.monotonic() - sleep_timer_start))/60)
                             msg2 = "SLEEP: " + str(time_left) + " mins"
+                tp = timedelta(seconds=played)
+                tl = timedelta(seconds=track_len)
+                msg5 = str(tp)[0:7] + " of " + str(tl)[0:7]    
                                 
                 if time.monotonic() - timer2 > 4:      
                     xt +=1
