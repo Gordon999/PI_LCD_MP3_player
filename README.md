@@ -49,11 +49,11 @@ sudo pip3 install rpi_lcd --break-system-packages
 
 # To install SSD1306 driver...
 
-    sudo pip3 install adafruit-circuitpython-ssd1306
+    sudo pip3 install adafruit-circuitpython-ssd1306 --break-system-packages
     
-    sudo pip3 install adafruit-blinka
+    sudo pip3 install adafruit-blinka --break-system-packages
     
-    sudo pip3 install pillow
+    sudo pip3 install pillow --break-system-packages
 
 sudo apt-get install python3-alsaaudio
 
