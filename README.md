@@ -31,6 +31,10 @@ BOOT MODES are STOPPED, MP3 PLAY or RADIO.
 
 ![screenshot](rotary_connections_LCD.jpg)
 
+![SSD1306](SSD1306.jpg)
+
+![16x2](16x2.jpg)
+
 
 To install:
 
