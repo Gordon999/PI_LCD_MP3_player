@@ -29,6 +29,8 @@ BOOT MODES are STOPPED, MP3 PLAY or RADIO.
 
 ## Connections
 
+## Rotary Encoders
+
 ![screenshot](rotary_connections_LCD.jpg)
 
 ## SSD1306
